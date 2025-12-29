@@ -10,7 +10,19 @@ export async function candidateRoutes(app: FastifyInstance) {
     const orgId = request.user!.orgId;
     return prisma.candidate.findMany({
       where: { orgId },
-      select: { id: true, name: true, email: true, status: true, overallScore: true, decision: true, submittedAt: true }
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        status: true,
+        overallScore: true,
+        decision: true,
+        submittedAt: true,
+        scoredAt: true,
+        createdAt: true,
+        testId: true
+      },
+      orderBy: { createdAt: 'desc' }
     });
   });
 
@@ -39,5 +51,23 @@ export async function candidateRoutes(app: FastifyInstance) {
       }))
     );
     return { candidate, responses: enriched };
+  });
+
+  app.get('/candidates/review/flags', async (request) => {
+    const orgId = request.user!.orgId;
+    const flagged = await prisma.response.findMany({
+      where: {
+        orgId,
+        OR: [{ flaggedReason: { not: null } }, { confidence: { lt: 60 } }]
+      },
+      include: { candidate: true, question: true }
+    });
+    const enriched = await Promise.all(
+      flagged.map(async (resp) => ({
+        ...resp,
+        signedUrl: await createSignedReadUrl(resp.audioObjectKey)
+      }))
+    );
+    return enriched;
   });
 }

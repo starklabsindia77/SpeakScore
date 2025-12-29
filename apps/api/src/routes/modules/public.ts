@@ -65,13 +65,25 @@ export async function publicRoutes(app: FastifyInstance) {
     submitAttemptSchema.parse(request.body);
     const responses = await prisma.response.findMany({ where: { attemptId: attempt.id, orgId: attempt.orgId } });
     let totalScore = 0;
+    let flaggedCount = 0;
     for (const resp of responses) {
-      const { overall, scores, decision, feedback } = simpleScoreFromTranscript(resp.transcript ?? '');
-      await prisma.response.update({ where: { id: resp.id }, data: { scoresJson: { ...scores, feedback } } });
+      const { overall, scores, decision, feedback, confidence, relevance, flagged, flaggedReason } = simpleScoreFromTranscript(resp.transcript ?? '');
+      await prisma.response.update({
+        where: { id: resp.id },
+        data: {
+          scoresJson: { ...scores, feedback },
+          confidence,
+          relevanceScore: relevance,
+          flaggedReason: flagged ? flaggedReason : null,
+          flaggedAt: flagged ? new Date() : null
+        }
+      });
+      if (flagged) flaggedCount += 1;
       totalScore += overall;
     }
     const overallScore = responses.length ? Math.round(totalScore / responses.length) : 0;
     const decision = overallScore >= 70 ? 'PASS' : overallScore >= 55 ? 'BORDERLINE' : 'FAIL';
+    const status = flaggedCount > 0 ? 'SUBMITTED' : 'SCORED';
     await prisma.$transaction(async (tx) => {
       const existing = await tx.creditUsage.findUnique({ where: { attemptId: attempt.id } });
       if (!existing) {
@@ -81,8 +93,8 @@ export async function publicRoutes(app: FastifyInstance) {
     });
     await prisma.candidate.updateMany({
       where: { id: attempt.candidateId, orgId: attempt.orgId },
-      data: { status: 'SCORED', submittedAt: new Date(), scoredAt: new Date(), overallScore, decision }
+      data: { status, submittedAt: new Date(), scoredAt: new Date(), overallScore, decision }
     });
-    return reply.send({ overallScore, decision });
+    return reply.send({ overallScore, decision, flaggedCount });
   });
 }
