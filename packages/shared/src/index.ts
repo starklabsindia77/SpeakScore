@@ -7,7 +7,11 @@ export const loginSchema = z.object({
 
 export const createOrgSchema = z.object({
   name: z.string().min(2),
-  creditsBalance: z.number().int().min(0).default(0)
+  creditsBalance: z.number().int().min(0).default(0),
+  schemaName: z
+    .string()
+    .regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/, 'schema must be alphanumeric/underscore and start with a letter')
+    .optional()
 });
 
 export const createUserInviteSchema = z.object({

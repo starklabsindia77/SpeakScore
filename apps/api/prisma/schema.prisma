@@ -11,6 +11,7 @@ datasource db {
 model Organization {
   id              String   @id @default(uuid())
   name            String
+  schemaName      String   @default("public") @map("schema_name")
   logoUrl         String?  @map("logo_url")
   creditsBalance  Int      @default(0) @map("credits_balance")
   createdAt       DateTime @default(now()) @map("created_at")
