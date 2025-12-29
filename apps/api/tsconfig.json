@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "types": ["node"],
+    "moduleResolution": "Node",
+    "module": "CommonJS"
+  },
+  "include": ["src", "prisma"],
+  "exclude": ["dist", "node_modules"]
+}

@@ -1,0 +1,24 @@
+{
+  "name": "speakscore-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@8.15.4",
+  "scripts": {
+    "dev": "pnpm -C apps/api dev",
+    "dev:web": "pnpm -C apps/web dev",
+    "dev:api": "pnpm -C apps/api dev",
+    "build": "pnpm -r --filter ./apps... --filter ./packages... build",
+    "lint": "pnpm -r lint",
+    "format": "pnpm -r format",
+    "test": "pnpm -r test",
+    "db:migrate": "pnpm -C apps/api db:migrate",
+    "db:seed": "pnpm -C apps/api db:seed"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "devDependencies": {
+    "typescript": "5.4.5"
+  }
+}

@@ -1,0 +1,188 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id              String   @id @default(uuid())
+  name            String
+  logoUrl         String?  @map("logo_url")
+  creditsBalance  Int      @default(0) @map("credits_balance")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  users           User[]
+  tests           Test[]
+  candidates      Candidate[]
+  candidateAttempts CandidateAttempt[]
+  responses       Response[]
+  creditUsage     CreditUsage[]
+  auditLogs       AuditLog[]
+}
+
+model User {
+  id           String   @id @default(uuid())
+  orgId        String   @map("org_id")
+  email        String
+  passwordHash String   @map("password_hash")
+  role         Role
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id])
+  createdTests Test[]       @relation("TestCreatedBy")
+  auditLogs    AuditLog[]   @relation("AuditUser")
+
+  @@index([orgId, email], name: "user_org_email_idx")
+  @@unique([email])
+}
+
+enum Role {
+  SUPER_ADMIN
+  ORG_ADMIN
+  RECRUITER
+}
+
+enum QuestionType {
+  READ_ALOUD
+  REPEAT_SENTENCE
+  JOB_SCENARIO
+  OPINION
+}
+
+enum CandidateStatus {
+  INVITED
+  STARTED
+  SUBMITTED
+  SCORED
+  EXPIRED
+}
+
+enum Decision {
+  PASS
+  BORDERLINE
+  FAIL
+}
+
+model Test {
+  id         String   @id @default(uuid())
+  orgId      String   @map("org_id")
+  name       String
+  configJson Json     @map("config_json")
+  expiresAt  DateTime? @map("expires_at")
+  isActive   Boolean  @default(true) @map("is_active")
+  createdBy  String   @map("created_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id])
+  creator      User         @relation("TestCreatedBy", fields: [createdBy], references: [id])
+  candidates   Candidate[]
+  questions    TestQuestion[]
+  attempts     CandidateAttempt[]
+}
+
+model TestQuestion {
+  id        String   @id @default(uuid())
+  orgId     String?  @map("org_id")
+  type      QuestionType
+  prompt    String
+  metaJson  Json?    @map("meta_json")
+  isActive  Boolean  @default(true) @map("is_active")
+
+  organization Organization? @relation(fields: [orgId], references: [id])
+  responses    Response[]
+}
+
+model Candidate {
+  id            String   @id @default(uuid())
+  orgId         String   @map("org_id")
+  testId        String   @map("test_id")
+  name          String
+  email         String
+  phone         String?
+  status        CandidateStatus @default(INVITED)
+  overallScore  Int?    @map("overall_score")
+  decision      Decision? 
+  startedAt     DateTime? @map("started_at")
+  submittedAt   DateTime? @map("submitted_at")
+  scoredAt      DateTime? @map("scored_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [orgId], references: [id])
+  test         Test         @relation(fields: [testId], references: [id])
+  attempts     CandidateAttempt[]
+  responses    Response[]
+  creditUsage  CreditUsage[]
+}
+
+model CandidateAttempt {
+  id         String   @id @default(uuid())
+  orgId      String   @map("org_id")
+  testId     String   @map("test_id")
+  candidateId String  @map("candidate_id")
+  tokenHash  String   @map("token_hash")
+  expiresAt  DateTime @map("expires_at")
+  usedAt     DateTime? @map("used_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [orgId], references: [id])
+  test         Test         @relation(fields: [testId], references: [id])
+  candidate    Candidate    @relation(fields: [candidateId], references: [id])
+  responses    Response[]
+  creditUsage  CreditUsage?
+
+  @@unique([candidateId])
+  @@unique([tokenHash])
+}
+
+model Response {
+  id           String   @id @default(uuid())
+  orgId        String   @map("org_id")
+  attemptId    String   @map("attempt_id")
+  candidateId  String   @map("candidate_id")
+  questionId   String   @map("question_id")
+  audioObjectKey String @map("audio_object_key")
+  transcript   String?
+  scoresJson   Json?    @map("scores_json")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id])
+  attempt      CandidateAttempt @relation(fields: [attemptId], references: [id])
+  candidate    Candidate        @relation(fields: [candidateId], references: [id])
+  question     TestQuestion     @relation(fields: [questionId], references: [id])
+}
+
+model CreditUsage {
+  id          String   @id @default(uuid())
+  orgId       String   @map("org_id")
+  candidateId String   @map("candidate_id")
+  attemptId   String   @map("attempt_id")
+  creditsUsed Int      @default(1) @map("credits_used")
+  usedAt      DateTime @default(now()) @map("used_at")
+
+  organization Organization @relation(fields: [orgId], references: [id])
+  candidate    Candidate    @relation(fields: [candidateId], references: [id])
+  attempt      CandidateAttempt @relation(fields: [attemptId], references: [id])
+
+  @@unique([attemptId])
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  orgId        String?  @map("org_id")
+  actorUserId  String?  @map("actor_user_id")
+  action       String
+  metaJson     Json     @map("meta_json")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  organization Organization? @relation(fields: [orgId], references: [id])
+  actor        User?         @relation("AuditUser", fields: [actorUserId], references: [id])
+}
+
+@@index([orgId], name: "org_scoped")
