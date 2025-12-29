@@ -3,7 +3,7 @@ import { candidateResponseSchema, submitAttemptSchema } from '@speakscore/shared
 import { createHash, randomUUID } from 'crypto';
 import { sql } from 'kysely';
 import { withTenantTransaction } from '../../db';
-import { resolveTenant } from '../../services/tenancy';
+import { resolveTenant, TenantAccessError } from '../../services/tenancy';
 import { createSignedUploadUrl } from '../../services/storage';
 import { simpleScoreFromTranscript } from '../../services/scoring';
 
@@ -69,6 +69,7 @@ export async function publicRoutes(app: FastifyInstance) {
     try {
       found = await findAttempt(token);
     } catch (e) {
+      if (e instanceof TenantAccessError && e.code === 'DISABLED') return reply.forbidden('Organization disabled');
       return reply.badRequest('Invalid token');
     }
     const { attempt, org } = found;
@@ -89,6 +90,7 @@ export async function publicRoutes(app: FastifyInstance) {
     try {
       attemptBundle = await findAttempt(token);
     } catch (e) {
+      if (e instanceof TenantAccessError && e.code === 'DISABLED') return reply.forbidden('Organization disabled');
       return reply.badRequest('Invalid token');
     }
     const { attempt, org } = attemptBundle;
@@ -112,6 +114,7 @@ export async function publicRoutes(app: FastifyInstance) {
     try {
       attemptBundle = await findAttempt(token);
     } catch (e) {
+      if (e instanceof TenantAccessError && e.code === 'DISABLED') return reply.forbidden('Organization disabled');
       return reply.badRequest('Invalid token');
     }
     const { attempt, org } = attemptBundle;
@@ -149,6 +152,7 @@ export async function publicRoutes(app: FastifyInstance) {
     try {
       attemptBundle = await findAttempt(token);
     } catch (e) {
+      if (e instanceof TenantAccessError && e.code === 'DISABLED') return reply.forbidden('Organization disabled');
       return reply.badRequest('Invalid token');
     }
     const { attempt, org } = attemptBundle;

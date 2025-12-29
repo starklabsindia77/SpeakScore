@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, NavLink, Route, Routes, useNavigate, useParams } from 'react-router-dom';
+import { Link, NavLink, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import { apiFetch } from './api';
+import { useAuth } from './auth';
 
 const navItems = [
   { label: 'Dashboard', to: '/dashboard' },
@@ -19,7 +20,17 @@ function Badge({ children, tone = 'neutral' }: { children: React.ReactNode; tone
   return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${toneClass}`}>{children}</span>;
 }
 
+function OrgStatusBadge({ status }: { status: string }) {
+  return <Badge tone={status === 'ACTIVE' ? 'success' : 'danger'}>{status}</Badge>;
+}
+
 function Layout({ children }: { children: React.ReactNode }) {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900">
       <aside className="hidden w-64 border-r bg-white/90 backdrop-blur md:block">
@@ -58,6 +69,12 @@ function Layout({ children }: { children: React.ReactNode }) {
             <div className="flex items-center gap-3">
               <Badge tone="neutral">Multi-tenant</Badge>
               <Badge tone="warning">Pilot</Badge>
+              {user && <Badge tone={user.role === 'SUPER_ADMIN' ? 'danger' : 'neutral'}>{user.role}</Badge>}
+              {user && (
+                <button onClick={handleLogout} className="text-xs font-semibold text-slate-600 underline hover:text-blue-700">
+                  Sign out
+                </button>
+              )}
             </div>
           </div>
         </header>
@@ -80,19 +97,25 @@ function LoginPage() {
   const [email, setEmail] = useState('admin@demo.com');
   const [password, setPassword] = useState('changeme123');
   const [orgId, setOrgId] = useState('00000000-0000-0000-0000-000000000001');
+  const [asAdmin, setAsAdmin] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setError('');
     try {
+      const payload: Record<string, any> = { email, password };
+      if (!asAdmin && orgId.trim()) {
+        payload.orgId = orgId.trim();
+      }
       const res = await apiFetch<{ accessToken: string; user: any }>('/api/auth/login', {
         method: 'POST',
-        body: JSON.stringify({ email, password, orgId })
+        body: JSON.stringify(payload)
       });
-      localStorage.setItem('accessToken', res.accessToken);
-      navigate('/dashboard');
+      login(res.accessToken, res.user);
+      navigate(res.user.role === 'SUPER_ADMIN' ? '/admin/orgs' : '/dashboard');
     } catch (err: any) {
       setError(err.message);
     }
@@ -112,9 +135,21 @@ function LoginPage() {
         <p className="text-sm text-slate-500">Admin demo account prefilled.</p>
         <form onSubmit={handleLogin} className="mt-4 space-y-4">
           {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+          <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
+            <input id="as-admin" type="checkbox" checked={asAdmin} onChange={(e) => setAsAdmin(e.target.checked)} className="h-4 w-4 accent-blue-600" />
+            <label htmlFor="as-admin" className="text-sm text-slate-700">
+              Platform admin (SUPER_ADMIN)
+            </label>
+          </div>
           <div>
             <label className="text-sm font-medium text-slate-700">Organization ID</label>
-            <input className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100" value={orgId} onChange={(e) => setOrgId(e.target.value)} />
+            <input
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              value={orgId}
+              disabled={asAdmin}
+              placeholder="Leave blank for SUPER_ADMIN login"
+              onChange={(e) => setOrgId(e.target.value)}
+            />
           </div>
           <div>
             <label className="text-sm font-medium text-slate-700">Email</label>
@@ -554,16 +589,458 @@ function AttemptPage() {
   );
 }
 
+type AdminOrg = {
+  id: string;
+  name: string;
+  schemaName: string;
+  status: string;
+  creditsBalance: number;
+  createdAt: string;
+  updatedAt?: string;
+};
+
+type PlatformLog = { id: string; level: string; source: string; message: string; orgId?: string | null; createdAt: string; meta?: Record<string, any> };
+
+function ProtectedRoute({ children }: { children: JSX.Element }) {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role === 'SUPER_ADMIN') return <Navigate to="/admin/orgs" replace />;
+  return children;
+}
+
+function AdminRoute({ children }: { children: JSX.Element }) {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/admin/login" replace />;
+  if (user.role !== 'SUPER_ADMIN') return <Navigate to="/dashboard" replace />;
+  return children;
+}
+
+function formatDate(value?: string | Date | null) {
+  if (!value) return '—';
+  const date = typeof value === 'string' ? new Date(value) : value;
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleString();
+}
+
+function AdminLayout({ children }: { children: React.ReactNode }) {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-900">
+      <header className="border-b bg-white/90 px-4 py-3 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-2">
+            <Link to="/admin/orgs" className="text-lg font-semibold text-blue-700">SpeakScore Admin</Link>
+            <Badge tone="danger">SUPER ADMIN</Badge>
+          </div>
+          <div className="flex items-center gap-3 text-sm text-slate-700">
+            {user && <span className="text-xs text-slate-500">{user.email}</span>}
+            <button onClick={handleLogout} className="text-xs font-semibold text-blue-700 underline">Sign out</button>
+          </div>
+        </div>
+        <div className="mx-auto mt-2 flex max-w-6xl gap-3 text-sm font-semibold text-slate-600">
+          <NavLink to="/admin/orgs" className={({ isActive }) => (isActive ? 'text-blue-700' : 'hover:text-blue-600')}>
+            Organizations
+          </NavLink>
+          <NavLink to="/admin/logs" className={({ isActive }) => (isActive ? 'text-blue-700' : 'hover:text-blue-600')}>
+            Platform logs
+          </NavLink>
+        </div>
+      </header>
+      <main className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6">{children}</main>
+    </div>
+  );
+}
+
+function AdminOrganizationsPage() {
+  const [orgs, setOrgs] = useState<AdminOrg[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [selectedOrg, setSelectedOrg] = useState<AdminOrg | null>(null);
+  const [creditsInput, setCreditsInput] = useState(10);
+  const [note, setNote] = useState('');
+
+  async function loadOrgs() {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await apiFetch<{ items: AdminOrg[] }>('/api/admin/orgs');
+      setOrgs(res.items);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadOrgs();
+  }, []);
+
+  async function toggleStatus(org: AdminOrg) {
+    const nextStatus = org.status === 'DISABLED' ? 'ACTIVE' : 'DISABLED';
+    const updated = await apiFetch<AdminOrg>(`/api/admin/orgs/${org.id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: nextStatus })
+    });
+    setOrgs((prev) => prev.map((item) => (item.id === org.id ? updated : item)));
+    if (selectedOrg?.id === org.id) setSelectedOrg(updated);
+  }
+
+  async function allocateCredits(org: AdminOrg) {
+    if (creditsInput <= 0) return;
+    const updated = await apiFetch<AdminOrg>(`/api/admin/orgs/${org.id}/credits`, {
+      method: 'POST',
+      body: JSON.stringify({ credits: creditsInput, note })
+    });
+    setOrgs((prev) => prev.map((item) => (item.id === org.id ? updated : item)));
+    setSelectedOrg(null);
+    setCreditsInput(10);
+    setNote('');
+  }
+
+  return (
+    <AdminLayout>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-[0.08em] text-slate-500">Platform control</p>
+          <h1 className="text-2xl font-semibold text-slate-900">Organizations</h1>
+        </div>
+        <Badge tone="neutral">{orgs.length} orgs</Badge>
+      </div>
+      {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+        <div className="grid grid-cols-7 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
+          <span>Name</span>
+          <span>ID</span>
+          <span>Schema</span>
+          <span className="text-right">Credits</span>
+          <span>Status</span>
+          <span>Created</span>
+          <span className="text-right">Actions</span>
+        </div>
+        <div className="divide-y divide-slate-100">
+          {loading && <p className="px-4 py-3 text-sm text-slate-600">Loading organizations...</p>}
+          {!loading &&
+            orgs.map((org) => (
+              <div key={org.id} className="grid grid-cols-7 items-center px-4 py-3 text-sm">
+                <span className="font-semibold text-slate-900">{org.name}</span>
+                <span className="truncate text-xs text-slate-500">{org.id}</span>
+                <span className="text-xs text-slate-600">{org.schemaName}</span>
+                <span className="text-right font-semibold">{org.creditsBalance}</span>
+                <OrgStatusBadge status={org.status} />
+                <span className="text-xs text-slate-500">{formatDate(org.createdAt)}</span>
+                <div className="flex justify-end gap-2 text-xs font-semibold">
+                  <Link to={`/admin/orgs/${org.id}`} className="text-blue-700">View</Link>
+                  <button onClick={() => toggleStatus(org)} className="text-slate-700 underline">
+                    {org.status === 'DISABLED' ? 'Enable' : 'Disable'}
+                  </button>
+                  <button onClick={() => setSelectedOrg(org)} className="text-blue-700 underline">
+                    Allocate credits
+                  </button>
+                </div>
+              </div>
+            ))}
+          {!loading && orgs.length === 0 && <p className="px-4 py-3 text-sm text-slate-600">No organizations yet.</p>}
+        </div>
+      </div>
+
+      {selectedOrg && (
+        <div className="fixed inset-0 z-20 flex items-center justify-center bg-slate-900/40 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">Allocate credits</p>
+                <p className="text-xs text-slate-500">{selectedOrg.name}</p>
+              </div>
+              <button onClick={() => setSelectedOrg(null)} className="text-sm text-slate-500">Close</button>
+            </div>
+            <div className="mt-3 space-y-3">
+              <div>
+                <label className="text-xs font-medium text-slate-700">Credits to add</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={creditsInput}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value, 10);
+                    setCreditsInput(Number.isFinite(value) ? value : 0);
+                  }}
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-700">Note (optional)</label>
+                <textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setSelectedOrg(null)} className="text-sm font-semibold text-slate-600">Cancel</button>
+                <button
+                  onClick={() => allocateCredits(selectedOrg)}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700"
+                  disabled={creditsInput <= 0}
+                >
+                  Allocate
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </AdminLayout>
+  );
+}
+
+function AdminOrgDetailPage() {
+  const { id } = useParams();
+  const [org, setOrg] = useState<AdminOrg | null>(null);
+  const [error, setError] = useState('');
+  const [creditsInput, setCreditsInput] = useState(5);
+  const [note, setNote] = useState('');
+
+  async function loadOrg() {
+    if (!id) return;
+    setError('');
+    try {
+      const res = await apiFetch<AdminOrg>(`/api/admin/orgs/${id}`);
+      setOrg(res);
+    } catch (err: any) {
+      setError(err.message);
+    }
+  }
+
+  useEffect(() => {
+    loadOrg();
+  }, [id]);
+
+  async function toggleStatus() {
+    if (!org) return;
+    const nextStatus = org.status === 'DISABLED' ? 'ACTIVE' : 'DISABLED';
+    const updated = await apiFetch<AdminOrg>(`/api/admin/orgs/${org.id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: nextStatus })
+    });
+    setOrg(updated);
+  }
+
+  async function allocate() {
+    if (!org || creditsInput <= 0) return;
+    const updated = await apiFetch<AdminOrg>(`/api/admin/orgs/${org.id}/credits`, {
+      method: 'POST',
+      body: JSON.stringify({ credits: creditsInput, note })
+    });
+    setOrg(updated);
+    setCreditsInput(5);
+    setNote('');
+  }
+
+  return (
+    <AdminLayout>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs uppercase tracking-[0.08em] text-slate-500">Organization</p>
+          <h1 className="text-2xl font-semibold text-slate-900">{org?.name || 'Loading...'}</h1>
+        </div>
+        <Link to="/admin/orgs" className="text-sm font-semibold text-blue-700 underline">Back to list</Link>
+      </div>
+      {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {org && (
+        <div className="space-y-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-sm font-semibold text-slate-900">{org.name}</p>
+              <p className="text-xs text-slate-500">{org.id}</p>
+            </div>
+            <OrgStatusBadge status={org.status} />
+          </div>
+          <div className="grid gap-3 text-sm md:grid-cols-2">
+            <div className="rounded-lg bg-slate-50/70 p-3">
+              <p className="text-xs uppercase tracking-[0.08em] text-slate-500">Schema</p>
+              <p className="font-semibold text-slate-900">{org.schemaName}</p>
+            </div>
+            <div className="rounded-lg bg-slate-50/70 p-3">
+              <p className="text-xs uppercase tracking-[0.08em] text-slate-500">Credits</p>
+              <p className="text-lg font-semibold text-slate-900">{org.creditsBalance}</p>
+            </div>
+            <div className="rounded-lg bg-slate-50/70 p-3">
+              <p className="text-xs uppercase tracking-[0.08em] text-slate-500">Created</p>
+              <p className="font-semibold text-slate-900">{formatDate(org.createdAt)}</p>
+            </div>
+            <div className="rounded-lg bg-slate-50/70 p-3">
+              <p className="text-xs uppercase tracking-[0.08em] text-slate-500">Updated</p>
+              <p className="font-semibold text-slate-900">{formatDate(org.updatedAt)}</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <button onClick={toggleStatus} className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-slate-800">
+              {org.status === 'DISABLED' ? 'Enable org' : 'Disable org'}
+            </button>
+            <div className="flex flex-1 flex-col gap-2 rounded-lg border border-slate-100 p-3 md:max-w-md">
+              <label className="text-xs font-semibold text-slate-700">Allocate credits</label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  value={creditsInput}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value, 10);
+                    setCreditsInput(Number.isFinite(value) ? value : 0);
+                  }}
+                  className="w-24 rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                />
+                <input
+                  type="text"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="Optional note"
+                  className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                />
+                <button
+                  onClick={allocate}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700"
+                  disabled={creditsInput <= 0}
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </AdminLayout>
+  );
+}
+
+function AdminLogsPage() {
+  const [logs, setLogs] = useState<PlatformLog[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [filters, setFilters] = useState({ level: '', orgId: '', fromDate: '', toDate: '' });
+  const [error, setError] = useState('');
+
+  async function loadLogs() {
+    setLoading(true);
+    setError('');
+    try {
+      const params = new URLSearchParams();
+      if (filters.level) params.append('level', filters.level);
+      if (filters.orgId) params.append('org_id', filters.orgId);
+      if (filters.fromDate) params.append('from_date', filters.fromDate);
+      if (filters.toDate) params.append('to_date', filters.toDate);
+      const res = await apiFetch<PlatformLog[]>(`/api/admin/logs?${params.toString()}`);
+      setLogs(res);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadLogs();
+  }, []);
+
+  return (
+    <AdminLayout>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-[0.08em] text-slate-500">Visibility</p>
+          <h1 className="text-2xl font-semibold text-slate-900">Platform logs</h1>
+        </div>
+        <button onClick={loadLogs} className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-slate-800">
+          Refresh
+        </button>
+      </div>
+      {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+
+      <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+        <div className="grid gap-3 md:grid-cols-4">
+          <div>
+            <label className="text-xs font-semibold text-slate-700">Level</label>
+            <select
+              value={filters.level}
+              onChange={(e) => setFilters((prev) => ({ ...prev, level: e.target.value }))}
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+            >
+              <option value="">Any</option>
+              <option value="INFO">INFO</option>
+              <option value="WARN">WARN</option>
+              <option value="ERROR">ERROR</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-slate-700">Org ID</label>
+            <input
+              value={filters.orgId}
+              onChange={(e) => setFilters((prev) => ({ ...prev, orgId: e.target.value }))}
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              placeholder="Optional org filter"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-slate-700">From</label>
+            <input
+              type="date"
+              value={filters.fromDate}
+              onChange={(e) => setFilters((prev) => ({ ...prev, fromDate: e.target.value }))}
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-slate-700">To</label>
+            <input
+              type="date"
+              value={filters.toDate}
+              onChange={(e) => setFilters((prev) => ({ ...prev, toDate: e.target.value }))}
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+            />
+          </div>
+        </div>
+        <div className="mt-3 flex justify-end">
+          <button onClick={loadLogs} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700">
+            Apply filters
+          </button>
+        </div>
+        <div className="mt-4 divide-y divide-slate-100 rounded-lg border border-slate-100">
+          {loading && <p className="px-4 py-3 text-sm text-slate-600">Loading logs...</p>}
+          {!loading &&
+            logs.map((log) => (
+              <div key={log.id} className="grid grid-cols-5 gap-2 px-4 py-3 text-sm">
+                <span className="text-xs text-slate-500">{formatDate(log.createdAt)}</span>
+                <span><Badge tone={log.level === 'ERROR' ? 'danger' : log.level === 'WARN' ? 'warning' : 'neutral'}>{log.level}</Badge></span>
+                <span className="text-xs font-semibold text-slate-700">{log.source}</span>
+                <span className="text-slate-800">{log.message}</span>
+                <span className="text-xs text-slate-500">{log.orgId || '—'}</span>
+              </div>
+            ))}
+          {!loading && logs.length === 0 && <p className="px-4 py-3 text-sm text-slate-600">No logs yet.</p>}
+        </div>
+      </div>
+    </AdminLayout>
+  );
+}
+
 export default function App() {
   return (
     <Routes>
       <Route path="/" element={<LoginPage />} />
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/dashboard" element={<Dashboard />} />
-      <Route path="/tests" element={<TestsList />} />
-      <Route path="/tests/:id" element={<TestDetail />} />
-      <Route path="/candidates" element={<CandidatesPage />} />
-      <Route path="/review" element={<ReviewQueue />} />
+      <Route path="/admin/login" element={<LoginPage />} />
+      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path="/tests" element={<ProtectedRoute><TestsList /></ProtectedRoute>} />
+      <Route path="/tests/:id" element={<ProtectedRoute><TestDetail /></ProtectedRoute>} />
+      <Route path="/candidates" element={<ProtectedRoute><CandidatesPage /></ProtectedRoute>} />
+      <Route path="/review" element={<ProtectedRoute><ReviewQueue /></ProtectedRoute>} />
+      <Route path="/admin/orgs" element={<AdminRoute><AdminOrganizationsPage /></AdminRoute>} />
+      <Route path="/admin/orgs/:id" element={<AdminRoute><AdminOrgDetailPage /></AdminRoute>} />
+      <Route path="/admin/logs" element={<AdminRoute><AdminLogsPage /></AdminRoute>} />
       <Route path="/attempt/:token" element={<AttemptPage />} />
     </Routes>
   );
