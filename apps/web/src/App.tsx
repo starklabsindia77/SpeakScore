@@ -79,6 +79,7 @@ function EmptyState({ title, description }: { title: string; description: string
 function LoginPage() {
   const [email, setEmail] = useState('admin@demo.com');
   const [password, setPassword] = useState('changeme123');
+  const [orgId, setOrgId] = useState('00000000-0000-0000-0000-000000000001');
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
@@ -88,7 +89,7 @@ function LoginPage() {
     try {
       const res = await apiFetch<{ accessToken: string; user: any }>('/api/auth/login', {
         method: 'POST',
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password, orgId })
       });
       localStorage.setItem('accessToken', res.accessToken);
       navigate('/dashboard');
@@ -111,6 +112,10 @@ function LoginPage() {
         <p className="text-sm text-slate-500">Admin demo account prefilled.</p>
         <form onSubmit={handleLogin} className="mt-4 space-y-4">
           {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+          <div>
+            <label className="text-sm font-medium text-slate-700">Organization ID</label>
+            <input className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100" value={orgId} onChange={(e) => setOrgId(e.target.value)} />
+          </div>
           <div>
             <label className="text-sm font-medium text-slate-700">Email</label>
             <input className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100" value={email} onChange={(e) => setEmail(e.target.value)} />

@@ -6,6 +6,5 @@ COPY apps/web/package.json apps/web/package.json
 COPY packages/shared/package.json packages/shared/package.json
 RUN corepack enable && pnpm install --frozen-lockfile || pnpm install
 COPY . .
-RUN pnpm -C apps/api prisma generate
 EXPOSE 4000
 CMD ["pnpm", "-C", "apps/api", "dev"]

@@ -1,5 +1,3 @@
-import { Prisma } from '@prisma/client';
-
 type ScoreDimensions = {
   pronunciation: number;
   fluency: number;
@@ -46,4 +44,12 @@ export function simpleScoreFromTranscript(transcript: string): ScoringOutput {
   return { scores, overall, decision, feedback, confidence: confidenceScore, relevance, flagged, flaggedReason };
 }
 
-export type ScoresJson = Prisma.JsonObject & { pronunciation: number; fluency: number; grammar: number; vocabulary: number; confidence: number; feedback?: string };
+export type ScoresJson = {
+  pronunciation: number;
+  fluency: number;
+  grammar: number;
+  vocabulary: number;
+  confidence: number;
+  feedback?: string;
+  [key: string]: unknown;
+};
