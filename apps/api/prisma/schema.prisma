@@ -149,6 +149,10 @@ model Response {
   audioObjectKey String @map("audio_object_key")
   transcript   String?
   scoresJson   Json?    @map("scores_json")
+  confidence   Float?   @map("confidence")
+  relevanceScore Float? @map("relevance_score")
+  flaggedReason String? @map("flagged_reason")
+  flaggedAt    DateTime? @map("flagged_at")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
