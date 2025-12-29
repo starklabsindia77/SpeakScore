@@ -6,7 +6,7 @@ export interface OrganizationsTable {
   id: string;
   name: string;
   schema_name: string;
-  status: 'active' | 'inactive' | 'provisioning';
+  status: 'ACTIVE' | 'DISABLED' | 'PROVISIONING';
   credits_balance: number;
   created_at: Timestamp;
   updated_at: Timestamp;
@@ -32,7 +32,11 @@ export interface GlobalQuestionPoolTable {
 export interface AuditLogsPlatformTable {
   id: Generated<string>;
   actor_admin_id: string | null;
+  level: 'INFO' | 'WARN' | 'ERROR';
+  source: 'API' | 'AI' | 'AUTH' | 'SYSTEM';
+  message: string;
   action: string;
+  org_id: string | null;
   meta_json: unknown | null;
   created_at: Timestamp;
 }

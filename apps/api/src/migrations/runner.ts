@@ -80,7 +80,7 @@ export async function migrateTenant(schemaName: string) {
 }
 
 export async function migrateAllTenants() {
-  const orgs = await db.selectFrom('organizations').select(['schema_name']).where('status', '=', 'active').execute();
+  const orgs = await db.selectFrom('organizations').select(['schema_name']).where('status', '=', 'ACTIVE').execute();
   for (const org of orgs) {
     await migrateTenant(org.schema_name);
   }

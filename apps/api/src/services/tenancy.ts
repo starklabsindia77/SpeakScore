@@ -4,6 +4,15 @@ import { sql } from 'kysely';
 import { assertSafeSchemaName, db, withTenantTransaction } from '../db';
 import { migrateTenant } from '../migrations/runner';
 import { logger } from '../logger';
+import { logPlatformEvent } from './audit';
+
+export class TenantAccessError extends Error {
+  code: 'NOT_FOUND' | 'DISABLED' | 'PROVISIONING';
+  constructor(message: string, code: 'NOT_FOUND' | 'DISABLED' | 'PROVISIONING') {
+    super(message);
+    this.code = code;
+  }
+}
 
 export function normalizeSchemaName(schemaName: string) {
   const cleaned = schemaName.toLowerCase().replace(/[^a-zA-Z0-9_]/g, '_');
@@ -22,10 +31,11 @@ export async function resolveTenant(orgId: string) {
     .where('id', '=', orgId)
     .executeTakeFirst();
   if (!org) {
-    throw new Error('Organization not found');
+    throw new TenantAccessError('Organization not found', 'NOT_FOUND');
   }
-  if (org.status !== 'active') {
-    throw new Error('Organization inactive');
+  if (org.status !== 'ACTIVE') {
+    const code: TenantAccessError['code'] = org.status === 'DISABLED' ? 'DISABLED' : 'PROVISIONING';
+    throw new TenantAccessError('Organization inactive', code);
   }
   return org;
 }
@@ -77,7 +87,7 @@ export async function provisionOrganization(opts: {
         id: orgId,
         name: opts.name,
         schema_name: schemaName,
-        status: 'provisioning',
+        status: 'PROVISIONING',
         credits_balance: credits,
         created_at: new Date(),
         updated_at: new Date()
@@ -112,11 +122,19 @@ export async function provisionOrganization(opts: {
 
   await db
     .updateTable('organizations')
-    .set({ status: 'active', updated_at: new Date() })
+    .set({ status: 'ACTIVE', updated_at: new Date() })
     .where('id', '=', orgId)
     .execute();
 
   const updated = await resolveTenant(orgId);
   logger.info({ orgId, schema: schemaName }, 'Provisioned organization');
+  await logPlatformEvent({
+    level: 'INFO',
+    source: 'SYSTEM',
+    message: 'Organization provisioned',
+    orgId,
+    meta: { schemaName, credits },
+    actorAdminId: null
+  });
   return updated;
 }

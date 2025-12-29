@@ -64,6 +64,13 @@ Minimal Vitest placeholders are included; extend as needed.
 - The API will create the org row in `public.organizations`, create the tenant schema, run tenant migrations, and seed default data/users.
 - Alternatively, run `pnpm db:migrate:tenant --schema=tenant_<orgId>` after adding an org row manually to public tables.
 
+## Platform admin panel (SUPER_ADMIN)
+- Seeds create a SUPER_ADMIN (`superadmin@speakscore.test` / `admin123!`). To add another, insert into `public.platform_admins` with a bcrypt-hashed password.
+- Access the admin UI at `/admin/orgs` (leave the Org ID blank on the login form to sign in as SUPER_ADMIN). Only SUPER_ADMIN tokens can call `/api/admin/*`.
+- Organization controls: list orgs, view details, toggle ACTIVE/DISABLED status, and allocate credits via the UI or `POST /api/admin/orgs/:id/credits` (`{ "credits": <positive int>, "note"?: string }`).
+- Platform logs: `/admin/logs` UI (or `GET /api/admin/logs`) filters by level/org/date and shows audit events for provisioning, status changes, credit allocations, and auth failures.
+- Disabling an org immediately blocks recruiter logins and candidate test starts; credit allocations are additive and audited.
+
 ## Scripts
 - `pnpm lint` / `pnpm format`
 - `pnpm build` builds packages/apps

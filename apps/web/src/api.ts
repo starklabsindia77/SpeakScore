@@ -9,6 +9,10 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}) {
   };
   const res = await fetch(`${API_URL}${path}`, { ...options, headers });
   if (!res.ok) {
+    if (res.status === 401) {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('user');
+    }
     const message = await res.text();
     throw new Error(message || 'Request failed');
   }

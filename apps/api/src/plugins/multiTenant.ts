@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import fp from 'fastify-plugin';
 import { Kysely } from 'kysely';
-import { resolveTenant } from '../services/tenancy';
+import { resolveTenant, TenantAccessError } from '../services/tenancy';
 import { Database } from '../db/types';
 import { withTenantTransaction } from '../db';
 
@@ -28,12 +28,21 @@ export default fp(async (app: FastifyInstance) => {
     if (!user.orgId) {
       return reply.unauthorized('Missing org context');
     }
-    const org = await resolveTenant(user.orgId).catch((err) => {
+    let org;
+    try {
+      org = await resolveTenant(user.orgId);
+    } catch (err) {
+      if (err instanceof TenantAccessError) {
+        if (err.code === 'DISABLED') {
+          return reply.forbidden('Organization disabled');
+        }
+        return reply.badRequest('Organization unavailable');
+      }
       request.log.error({ err }, 'Failed to resolve tenant');
-      return null;
-    });
+      return reply.internalServerError();
+    }
     if (!org) {
-      return reply.badRequest('Unknown organization');
+      return reply.badRequest('Organization unavailable');
     }
     (request as any).tenant = { orgId: org.id, schemaName: org.schema_name };
   });
