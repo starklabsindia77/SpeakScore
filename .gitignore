@@ -1,0 +1,10 @@
+node_modules
+.DS_Store
+.env
+.env.local
+.pnpm-store
+.build
+coverage
+dist
+docker-data
+pnpm-lock.yaml
