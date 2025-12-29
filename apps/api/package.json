@@ -9,8 +9,10 @@
     "lint": "eslint src --ext .ts",
     "format": "prettier --write src",
     "test": "vitest run",
-    "db:migrate": "prisma migrate dev --name init",
-    "db:seed": "ts-node prisma/seed.ts"
+    "db:migrate:public": "ts-node src/migrations/cli.ts public",
+    "db:migrate:tenant": "ts-node src/migrations/cli.ts tenant",
+    "db:migrate:all-tenants": "ts-node src/migrations/cli.ts all-tenants",
+    "db:seed": "ts-node src/seeds/seed.ts"
   },
   "dependencies": {
     "@fastify/cors": "9.0.1",
@@ -20,7 +22,6 @@
     "@fastify/multipart": "8.3.0",
     "@fastify/swagger": "8.14.1",
     "@fastify/swagger-ui": "4.0.0",
-    "@prisma/client": "5.16.1",
     "@speakscore/shared": "workspace:*",
     "bcryptjs": "2.4.3",
     "bullmq": "5.12.1",
@@ -35,7 +36,9 @@
     "@aws-sdk/client-s3": "3.567.0",
     "@aws-sdk/s3-request-presigner": "3.567.0",
     "uuid": "9.0.1",
-    "date-fns": "3.6.0"
+    "date-fns": "3.6.0",
+    "kysely": "0.27.3",
+    "pg": "8.11.5"
   },
   "devDependencies": {
     "@types/bcryptjs": "2.4.2",

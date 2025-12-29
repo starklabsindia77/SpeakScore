@@ -11,7 +11,9 @@
     "lint": "pnpm -r lint",
     "format": "pnpm -r format",
     "test": "pnpm -r test",
-    "db:migrate": "pnpm -C apps/api db:migrate",
+    "db:migrate:public": "pnpm -C apps/api db:migrate:public",
+    "db:migrate:tenant": "pnpm -C apps/api db:migrate:tenant",
+    "db:migrate:all-tenants": "pnpm -C apps/api db:migrate:all-tenants",
     "db:seed": "pnpm -C apps/api db:seed"
   },
   "workspaces": [

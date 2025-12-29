@@ -5,7 +5,7 @@ import { env } from '../env';
 
 export interface AuthPayload {
   userId: string;
-  orgId: string;
+  orgId?: string;
   role: 'SUPER_ADMIN' | 'ORG_ADMIN' | 'RECRUITER';
 }
 

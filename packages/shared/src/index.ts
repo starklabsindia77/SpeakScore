@@ -2,7 +2,8 @@ import { z } from 'zod';
 
 export const loginSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8)
+  password: z.string().min(8),
+  orgId: z.string().uuid().optional()
 });
 
 export const createOrgSchema = z.object({
@@ -11,7 +12,9 @@ export const createOrgSchema = z.object({
   schemaName: z
     .string()
     .regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/, 'schema must be alphanumeric/underscore and start with a letter')
-    .optional()
+    .optional(),
+  adminEmail: z.string().email().optional(),
+  adminPassword: z.string().min(8).optional()
 });
 
 export const createUserInviteSchema = z.object({
