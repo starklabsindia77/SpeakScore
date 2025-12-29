@@ -11,6 +11,7 @@ datasource db {
 model Organization {
   id              String   @id @default(uuid())
   name            String
+  schemaName      String   @default("public") @map("schema_name")
   logoUrl         String?  @map("logo_url")
   creditsBalance  Int      @default(0) @map("credits_balance")
   createdAt       DateTime @default(now()) @map("created_at")
@@ -149,6 +150,10 @@ model Response {
   audioObjectKey String @map("audio_object_key")
   transcript   String?
   scoresJson   Json?    @map("scores_json")
+  confidence   Float?   @map("confidence")
+  relevanceScore Float? @map("relevance_score")
+  flaggedReason String? @map("flagged_reason")
+  flaggedAt    DateTime? @map("flagged_at")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 

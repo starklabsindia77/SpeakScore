@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { createOrgSchema } from '@speakscore/shared';
 import { prisma } from '../../db';
+import { ensureOrgSchema, schemaFromOrgName } from '../../services/tenancy';
 
 export async function adminRoutes(app: FastifyInstance) {
   app.addHook('preHandler', app.authenticate);
@@ -11,7 +12,8 @@ export async function adminRoutes(app: FastifyInstance) {
 
   app.post('/orgs', { preHandler: app.authorize(['SUPER_ADMIN']) }, async (request) => {
     const data = createOrgSchema.parse(request.body);
-    return prisma.organization.create({ data });
+    const schemaName = await ensureOrgSchema(data.schemaName ?? schemaFromOrgName(data.name));
+    return prisma.organization.create({ data: { ...data, schemaName } });
   });
 
   app.post('/orgs/:id/credits', { preHandler: app.authorize(['SUPER_ADMIN']) }, async (request, reply) => {
