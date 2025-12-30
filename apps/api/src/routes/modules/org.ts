@@ -14,7 +14,13 @@ export async function orgRoutes(app: FastifyInstance) {
         .where('id', '=', request.user?.userId ?? '')
         .executeTakeFirst();
       if (!user) return null;
-      return { id: user.id, email: user.email, role: user.role, orgId: user.org_id };
+      return {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        orgId: user.org_id,
+        title: (user as any).title
+      };
     });
   });
 
@@ -29,7 +35,13 @@ export async function orgRoutes(app: FastifyInstance) {
           .orderBy('created_at', 'desc')
           .execute()
       )
-      .then((rows) => rows.map((r) => ({ id: r.id, email: r.email, role: r.role, createdAt: r.created_at })));
+      .then((rows) => rows.map((r) => ({
+        id: r.id,
+        email: r.email,
+        role: r.role,
+        title: (r as any).title,
+        createdAt: r.created_at
+      })));
   });
 
   app.post('/org/users/invite', { preHandler: app.authorize(['ORG_ADMIN']) }, async (request, reply) => {
@@ -45,13 +57,52 @@ export async function orgRoutes(app: FastifyInstance) {
           email: data.email,
           password_hash: passwordHash,
           role: data.role,
+          title: data.title,
+          custom_role_id: data.customRoleId,
           created_at: new Date(),
           updated_at: new Date()
         })
-        .returning(['id', 'email', 'role'])
+        .returning(['id', 'email', 'role', 'title'])
         .execute();
       return created;
     });
-    reply.code(201).send({ id: user.id, email: user.email, role: user.role });
+    reply.code(201).send({ id: user.id, email: user.email, role: user.role, title: user.title });
+  });
+
+  app.get('/org/roles', { preHandler: app.authorize(['ORG_ADMIN']) }, async (request) => {
+    return request.withTenantDb(async (tenantDb) => {
+      return tenantDb.selectFrom('custom_roles').selectAll().orderBy('name').execute();
+    });
+  });
+
+  app.post('/org/roles', { preHandler: app.authorize(['ORG_ADMIN']) }, async (request) => {
+    const data = request.body as { name: string; permissions: string[] };
+    return request.withTenantDb(async (tenantDb) => {
+      const [role] = await tenantDb
+        .insertInto('custom_roles')
+        .values({
+          id: randomUUID(),
+          name: data.name,
+          permissions: data.permissions,
+          is_system: false,
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+        .returningAll()
+        .execute();
+      return role;
+    });
+  });
+
+  app.delete('/org/roles/:id', { preHandler: app.authorize(['ORG_ADMIN']) }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    await request.withTenantDb(async (tenantDb) => {
+      const role = await tenantDb.selectFrom('custom_roles').select('is_system').where('id', '=', id).executeTakeFirst();
+      if (role?.is_system) {
+        throw new Error('Cannot delete system roles');
+      }
+      await tenantDb.deleteFrom('custom_roles').where('id', '=', id).execute();
+    });
+    return { success: true };
   });
 }

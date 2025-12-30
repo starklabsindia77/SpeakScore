@@ -66,9 +66,7 @@ export async function testRoutes(app: FastifyInstance) {
         .where('test_id', '=', testId)
         .execute();
       const tenantQuestions = await tenantDb.selectFrom('test_questions').selectAll().where('is_active', '=', true).execute();
-      const globalQuestions = await tenantDb.execute(
-        sql`select id, type, prompt, meta_json, is_active, created_at from public.global_question_pool where is_active = true`
-      );
+      const globalQuestions = await sql<{ id: string; type: string; prompt: string; meta_json: any; is_active: boolean; created_at: Date }>`select id, type, prompt, meta_json, is_active, created_at from public.global_question_pool where is_active = true`.execute(tenantDb);
       const questionMap = new Map<string, any>();
       [...tenantQuestions, ...globalQuestions.rows].forEach((q: any) => {
         questionMap.set(q.id, {
@@ -103,6 +101,58 @@ export async function testRoutes(app: FastifyInstance) {
     });
     if (!data) return reply.notFound('Test not found');
     return data;
+  });
+
+  app.post('/tests/:id/links/bulk', async (request, reply) => {
+    const orgId = request.user!.orgId!;
+    const testId = (request.params as any).id;
+    const { candidates } = (request.body as any); // Use schema validation in production
+
+    const results = await request.withTenantDb(async (tenantDb) => {
+      const test = await tenantDb.selectFrom('tests').select(['id']).where('id', '=', testId).where('org_id', '=', orgId).executeTakeFirst();
+      if (!test) return null;
+
+      const invitationResults = [];
+      for (const cand of candidates) {
+        const [candidate] = await tenantDb
+          .insertInto('candidates')
+          .values({
+            id: randomUUID(),
+            org_id: orgId,
+            test_id: testId,
+            name: cand.name,
+            email: cand.email,
+            status: 'INVITED',
+            created_at: new Date()
+          })
+          .returning(['id'])
+          .execute();
+
+        const rawToken = randomUUID();
+        const token = `${orgId}:${rawToken}`;
+        const tokenHash = createHash('sha256').update(token).digest('hex');
+
+        await tenantDb
+          .insertInto('candidate_attempts')
+          .values({
+            id: randomUUID(),
+            org_id: orgId,
+            test_id: testId,
+            candidate_id: candidate.id,
+            token_hash: tokenHash,
+            expires_at: addMinutes(new Date(), 60),
+            created_at: new Date(),
+            used_at: null
+          })
+          .execute();
+
+        invitationResults.push({ name: cand.name, email: cand.email, token });
+      }
+      return invitationResults;
+    });
+
+    if (!results) return reply.notFound('Test missing');
+    return { invitations: results };
   });
 
   app.post('/tests/:id/links', async (request, reply) => {

@@ -3,11 +3,17 @@ import { Link, NavLink, Navigate, Route, Routes, useNavigate, useParams } from '
 import { apiFetch } from './api';
 import { useAuth } from './auth';
 
-const navItems = [
+const recruiterNav = [
   { label: 'Dashboard', to: '/dashboard' },
   { label: 'Tests', to: '/tests' },
   { label: 'Candidates', to: '/candidates' },
   { label: 'Review queue', to: '/review' }
+];
+
+const orgAdminNav = [
+  ...recruiterNav,
+  { label: 'Team members', to: '/org/users' },
+  { label: 'Roles & Permissions', to: '/org/roles' }
 ];
 
 function Badge({ children, tone = 'neutral' }: { children: React.ReactNode; tone?: 'neutral' | 'success' | 'warning' | 'danger' }) {
@@ -31,6 +37,8 @@ function Layout({ children }: { children: React.ReactNode }) {
     logout();
     navigate('/login');
   };
+  const activeNav = user?.role === 'ORG_ADMIN' ? orgAdminNav : recruiterNav;
+
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900">
       <aside className="hidden w-64 border-r bg-white/90 backdrop-blur md:block">
@@ -42,7 +50,7 @@ function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
         <nav className="mt-4 space-y-1 px-3">
-          {navItems.map((item) => (
+          {activeNav.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -60,7 +68,7 @@ function Layout({ children }: { children: React.ReactNode }) {
           <div className="mx-auto flex max-w-6xl items-center justify-between">
             <Link to="/" className="text-lg font-semibold text-blue-700 md:hidden">SpeakScore</Link>
             <div className="hidden gap-3 text-sm font-medium text-slate-600 md:flex">
-              {navItems.map((item) => (
+              {activeNav.map((item) => (
                 <NavLink key={item.to} to={item.to} className={({ isActive }) => (isActive ? 'text-blue-700' : 'hover:text-blue-600')}>
                   {item.label}
                 </NavLink>
@@ -308,6 +316,8 @@ function TestsList() {
 function TestDetail() {
   const { id } = useParams();
   const [test, setTest] = useState<any>();
+  const [bulkInput, setBulkInput] = useState('');
+  const [bulkLinks, setBulkLinks] = useState<any[]>([]);
   const [linkInfo, setLinkInfo] = useState<{ token: string } | null>(null);
   const [candidateName, setCandidateName] = useState('Alex Candidate');
   const [candidateEmail, setCandidateEmail] = useState('alex@example.com');
@@ -323,6 +333,27 @@ function TestDetail() {
       body: JSON.stringify({ candidateName, candidateEmail })
     });
     setLinkInfo(res);
+    apiFetch<any>(`/api/tests/${id}`).then(setTest);
+  }
+
+  async function handleBulkInvite() {
+    if (!id || !bulkInput.trim()) return;
+    const lines = bulkInput.split('\n').filter(l => l.trim());
+    const candidates = lines.map(line => {
+      const parts = line.split(/[,\t]/);
+      return {
+        name: parts[0]?.trim() || 'Candidate',
+        email: (parts[1] || parts[0])?.trim()
+      };
+    });
+
+    const res = await apiFetch<any>(`/api/tests/${id}/links/bulk`, {
+      method: 'POST',
+      body: JSON.stringify({ candidates })
+    });
+    setBulkLinks(res.invitations);
+    setBulkInput('');
+    apiFetch<any>(`/api/tests/${id}`).then(setTest);
   }
 
   return (
@@ -335,20 +366,46 @@ function TestDetail() {
         <Badge tone="neutral">Adaptive + media</Badge>
       </div>
       <div className="grid gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">Invite candidate</h2>
-          <p className="text-sm text-slate-500">Links expire after 60 minutes by default.</p>
-          <div className="mt-3 grid gap-3 md:grid-cols-3">
-            <input value={candidateName} onChange={(e) => setCandidateName(e.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100" />
-            <input value={candidateEmail} onChange={(e) => setCandidateEmail(e.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100" />
-            <button onClick={generateLink} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700">Generate link</button>
+        <div className="lg:col-span-2 space-y-4">
+          <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+            <h2 className="text-lg font-semibold text-slate-900">Invite candidate</h2>
+            <p className="text-sm text-slate-500">Add a single candidate to generate a link.</p>
+            <div className="mt-3 grid gap-3 md:grid-cols-3">
+              <input placeholder="Name" value={candidateName} onChange={(e) => setCandidateName(e.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+              <input placeholder="Email" value={candidateEmail} onChange={(e) => setCandidateEmail(e.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+              <button onClick={generateLink} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700">Generate link</button>
+            </div>
+            {linkInfo && (
+              <p className="mt-3 text-sm text-slate-700">
+                Link: <span className="font-mono text-blue-700">{`${window.location.origin}/attempt/${linkInfo.token}`}</span>
+              </p>
+            )}
           </div>
-          {linkInfo && (
-            <p className="mt-3 text-sm text-slate-700">
-              Share this link:{' '}
-              <span className="font-mono text-blue-700">{`${window.location.origin}/attempt/${linkInfo.token}`}</span>
-            </p>
-          )}
+
+          <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+            <h2 className="text-lg font-semibold text-slate-900">Bulk Invite</h2>
+            <p className="text-sm text-slate-500">Paste names and emails (one per line, e.g. "John Doe, john@example.com")</p>
+            <textarea
+              value={bulkInput}
+              onChange={(e) => setBulkInput(e.target.value)}
+              placeholder="Name, email&#10;Name, email"
+              rows={4}
+              className="mt-3 w-full rounded-lg border border-slate-200 p-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+            />
+            <button onClick={handleBulkInvite} className="mt-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-slate-800">Invite candidates</button>
+
+            {bulkLinks.length > 0 && (
+              <div className="mt-4 max-h-40 overflow-auto rounded-lg border border-slate-100 bg-slate-50 p-3">
+                <p className="text-xs font-semibold text-slate-500 uppercase mb-2">Generated Links</p>
+                {bulkLinks.map((inv, idx) => (
+                  <div key={idx} className="text-xs mb-1">
+                    <span className="font-semibold">{inv.name}:</span>
+                    <span className="ml-1 text-blue-700 break-all">{`${window.location.origin}/attempt/${inv.token}`}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
         <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
           <h3 className="text-sm font-semibold text-slate-900">Configuration</h3>
@@ -1028,6 +1085,212 @@ function AdminOrgDetailPage() {
   );
 }
 
+function OrgUsersPage() {
+  const [users, setUsers] = useState<any[]>([]);
+  const [roles, setRoles] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [showInvite, setShowInvite] = useState(false);
+  const [error, setError] = useState('');
+  const [invite, setInvite] = useState({ email: '', role: '', title: '', customRoleId: '' });
+
+  async function loadData() {
+    setLoading(true);
+    try {
+      const [u, r] = await Promise.all([
+        apiFetch<any[]>('/api/org/users'),
+        apiFetch<any[]>('/api/org/roles')
+      ]);
+      setUsers(u);
+      setRoles(r);
+      if (r.length > 0) setInvite(prev => ({ ...prev, role: r[0].name, customRoleId: r[0].id }));
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { loadData(); }, []);
+
+  async function handleInvite(e: React.FormEvent) {
+    e.preventDefault();
+    try {
+      await apiFetch('/api/org/users/invite', {
+        method: 'POST',
+        body: JSON.stringify(invite)
+      });
+      setShowInvite(false);
+      loadData();
+    } catch (err: any) {
+      setError(err.message);
+    }
+  }
+
+  return (
+    <Layout>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Team members</h1>
+        <button
+          onClick={() => setShowInvite(true)}
+          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700"
+        >
+          Invite member
+        </button>
+      </div>
+
+      <div className="mt-6 overflow-hidden rounded-xl border bg-white shadow-sm">
+        <div className="grid grid-cols-4 bg-slate-50 px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+          <span>User</span>
+          <span>Role</span>
+          <span>Terminology</span>
+          <span>Joined</span>
+        </div>
+        <div className="divide-y">
+          {users.map(u => (
+            <div key={u.id} className="grid grid-cols-4 px-6 py-4 text-sm">
+              <span className="font-medium">{u.email}</span>
+              <span><Badge tone="neutral">{u.role}</Badge></span>
+              <span className="text-slate-500">{u.title || '—'}</span>
+              <span className="text-slate-500">{formatDate(u.createdAt)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {showInvite && (
+        <div className="fixed inset-0 z-20 flex items-center justify-center bg-slate-900/40 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h2 className="text-xl font-semibold">Invite new member</h2>
+            <form onSubmit={handleInvite} className="mt-4 space-y-4">
+              <div>
+                <label className="text-xs font-semibold">Email address</label>
+                <input required type="email" value={invite.email} onChange={e => setInvite({ ...invite, email: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold">Role</label>
+                <select
+                  value={invite.customRoleId}
+                  onChange={e => {
+                    const r = roles.find(x => x.id === e.target.value);
+                    setInvite({ ...invite, customRoleId: e.target.value, role: r?.name || '' });
+                  }}
+                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                >
+                  {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-semibold">Terminology (e.g. Senior HR)</label>
+                <input type="text" value={invite.title} onChange={e => setInvite({ ...invite, title: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" placeholder="Optional" />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={() => setShowInvite(false)} className="text-sm font-semibold text-slate-600">Cancel</button>
+                <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow">Send invite</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </Layout>
+  );
+}
+
+import { SYSTEM_PERMISSIONS } from '@speakscore/shared';
+
+function OrgRolesPage() {
+  const [roles, setRoles] = useState<any[]>([]);
+  const [showAdd, setShowAdd] = useState(false);
+  const [newRole, setNewRole] = useState({ name: '', permissions: [] as string[] });
+
+  async function loadRoles() {
+    const res = await apiFetch<any[]>('/api/org/roles');
+    setRoles(res);
+  }
+
+  useEffect(() => { loadRoles(); }, []);
+
+  async function handleAdd(e: React.FormEvent) {
+    e.preventDefault();
+    await apiFetch('/api/org/roles', { method: 'POST', body: JSON.stringify(newRole) });
+    setShowAdd(false);
+    setNewRole({ name: '', permissions: [] });
+    loadRoles();
+  }
+
+  const togglePerm = (p: string) => {
+    setNewRole(prev => ({
+      ...prev,
+      permissions: prev.permissions.includes(p)
+        ? prev.permissions.filter(x => x !== p)
+        : [...prev.permissions, p]
+    }));
+  };
+
+  return (
+    <Layout>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">Roles & Permissions</h1>
+          <p className="text-sm text-slate-500">Define custom terminology and access levels for your team.</p>
+        </div>
+        <button
+          onClick={() => setShowAdd(true)}
+          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700"
+        >
+          Create custom role
+        </button>
+      </div>
+
+      <div className="mt-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {roles.map(r => (
+          <div key={r.id} className="rounded-xl border bg-white p-5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-slate-900">{r.name}</h3>
+              {r.is_system && <Badge tone="neutral">System</Badge>}
+            </div>
+            <div className="mt-4 flex flex-wrap gap-1">
+              {r.permissions.includes('*') ? (
+                <Badge tone="success">Full Access</Badge>
+              ) : (
+                r.permissions.map((p: string) => <Badge key={p} tone="neutral">{p}</Badge>)
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {showAdd && (
+        <div className="fixed inset-0 z-20 flex items-center justify-center bg-slate-900/40 px-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+            <h2 className="text-xl font-semibold">Create custom role</h2>
+            <form onSubmit={handleAdd} className="mt-4 space-y-4">
+              <div>
+                <label className="text-xs font-semibold">Role Name (e.g. Junior Recruiter)</label>
+                <input required value={newRole.name} onChange={e => setNewRole({ ...newRole, name: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold">Permissions</label>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {SYSTEM_PERMISSIONS.map(p => (
+                    <label key={p} className="flex items-center gap-2 rounded-lg border p-2 text-xs hover:bg-slate-50">
+                      <input type="checkbox" checked={newRole.permissions.includes(p)} onChange={() => togglePerm(p)} />
+                      {p.replace(/_/g, ' ')}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-4">
+                <button type="button" onClick={() => setShowAdd(false)} className="text-sm font-semibold text-slate-600">Cancel</button>
+                <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow">Create role</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </Layout>
+  );
+}
+
 function AdminLogsPage() {
   const [logs, setLogs] = useState<PlatformLog[]>([]);
   const [loading, setLoading] = useState(false);
@@ -1147,6 +1410,8 @@ export default function App() {
       <Route path="/tests/:id" element={<ProtectedRoute><TestDetail /></ProtectedRoute>} />
       <Route path="/candidates" element={<ProtectedRoute><CandidatesPage /></ProtectedRoute>} />
       <Route path="/review" element={<ProtectedRoute><ReviewQueue /></ProtectedRoute>} />
+      <Route path="/org/users" element={<ProtectedRoute><OrgUsersPage /></ProtectedRoute>} />
+      <Route path="/org/roles" element={<ProtectedRoute><OrgRolesPage /></ProtectedRoute>} />
       <Route path="/admin/orgs" element={<AdminRoute><AdminOrganizationsPage /></AdminRoute>} />
       <Route path="/admin/orgs/:id" element={<AdminRoute><AdminOrgDetailPage /></AdminRoute>} />
       <Route path="/admin/logs" element={<AdminRoute><AdminLogsPage /></AdminRoute>} />

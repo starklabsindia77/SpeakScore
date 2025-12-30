@@ -44,9 +44,7 @@ async function findAttempt(rawToken: string) {
 async function loadQuestions(schemaName: string) {
   return withTenantTransaction(schemaName, async (tenantDb) => {
     const tenantQuestions = await tenantDb.selectFrom('test_questions').selectAll().where('is_active', '=', true).execute();
-    const globalQuestions = await tenantDb.execute(
-      sql`select id, type, prompt, meta_json, is_active, created_at from public.global_question_pool where is_active = true`
-    );
+    const globalQuestions = await sql<{ id: string; type: string; prompt: string; meta_json: any; is_active: boolean; created_at: Date }>`select id, type, prompt, meta_json, is_active, created_at from public.global_question_pool where is_active = true`.execute(tenantDb);
     const combined = new Map<string, any>();
     [...tenantQuestions, ...globalQuestions.rows].forEach((q: any) => {
       combined.set(q.id, {
@@ -197,7 +195,7 @@ export async function publicRoutes(app: FastifyInstance) {
             used_at: new Date()
           })
           .execute();
-        await tenantDb.execute(sql`update public.organizations set credits_balance = credits_balance - 1, updated_at = now() where id = ${org.id}`);
+        await sql`update public.organizations set credits_balance = credits_balance - 1, updated_at = now() where id = ${org.id}`.execute(tenantDb);
       }
 
       await tenantDb

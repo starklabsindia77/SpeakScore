@@ -102,6 +102,13 @@ export async function provisionOrganization(opts: {
   if (opts.adminEmail && opts.adminPassword) {
     const passwordHash = await bcrypt.hash(opts.adminPassword, 10);
     await withTenantTransaction(schemaName, async (tenantDb) => {
+      // Fetch the seeded ORG_ADMIN role ID
+      const role = await tenantDb
+        .selectFrom('custom_roles')
+        .select('id')
+        .where('name', '=', 'ORG_ADMIN')
+        .executeTakeFirst();
+
       await tenantDb
         .insertInto('users')
         .values({
@@ -110,6 +117,7 @@ export async function provisionOrganization(opts: {
           email: opts.adminEmail!,
           password_hash: passwordHash,
           role: 'ORG_ADMIN',
+          custom_role_id: role?.id,
           created_at: new Date(),
           updated_at: new Date()
         })

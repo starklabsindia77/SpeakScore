@@ -51,7 +51,18 @@ export interface UsersTable {
   org_id: string;
   email: string;
   password_hash: string;
-  role: 'ORG_ADMIN' | 'RECRUITER';
+  role: string;
+  title: string | null;
+  custom_role_id: string | null;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+export interface CustomRolesTable {
+  id: string;
+  name: string;
+  permissions: string[];
+  is_system: boolean;
   created_at: Timestamp;
   updated_at: Timestamp;
 }
@@ -152,6 +163,7 @@ export interface Database {
   global_question_pool: GlobalQuestionPoolTable;
   schema_migrations_public: SchemaMigrationsPublicTable;
   users: UsersTable;
+  custom_roles: CustomRolesTable;
   tests: TestsTable;
   test_questions: TestQuestionsTable;
   candidates: CandidatesTable;

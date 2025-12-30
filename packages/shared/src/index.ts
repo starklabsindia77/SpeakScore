@@ -19,7 +19,9 @@ export const createOrgSchema = z.object({
 
 export const createUserInviteSchema = z.object({
   email: z.string().email(),
-  role: z.enum(['ORG_ADMIN', 'RECRUITER'])
+  role: z.string().min(1), // Can be a custom role name
+  title: z.string().optional(),
+  customRoleId: z.string().uuid().optional()
 });
 
 export const createTestSchema = z.object({
@@ -33,6 +35,13 @@ export const createAttemptSchema = z.object({
   candidateEmail: z.string().email()
 });
 
+export const bulkInviteSchema = z.object({
+  candidates: z.array(z.object({
+    name: z.string().min(2),
+    email: z.string().email()
+  }))
+});
+
 export const candidateResponseSchema = z.object({
   questionId: z.string(),
   audioObjectKey: z.string()
@@ -41,6 +50,20 @@ export const candidateResponseSchema = z.object({
 export const submitAttemptSchema = z.object({
   submittedAt: z.string().datetime()
 });
+
+export type Permission =
+  | 'view_candidates' | 'invite_candidates' | 'score_candidates'
+  | 'view_tests' | 'manage_tests'
+  | 'manage_users' | 'manage_roles'
+  | 'view_audit_logs'
+  | '*'; // Admin override
+
+export const SYSTEM_PERMISSIONS: Permission[] = [
+  'view_candidates', 'invite_candidates', 'score_candidates',
+  'view_tests', 'manage_tests',
+  'manage_users', 'manage_roles',
+  'view_audit_logs'
+];
 
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateOrgInput = z.infer<typeof createOrgSchema>;
