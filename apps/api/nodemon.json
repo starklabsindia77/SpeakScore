@@ -1,0 +1,8 @@
+{
+    "watch": [
+        "src",
+        "../../packages/shared/src"
+    ],
+    "ext": "ts",
+    "exec": "ts-node --transpile-only src/index.ts"
+}

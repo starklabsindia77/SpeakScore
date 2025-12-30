@@ -2,11 +2,18 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dist",
-    "rootDir": "src",
-    "types": ["node"],
+    "types": [
+      "node"
+    ],
     "moduleResolution": "Node",
     "module": "CommonJS"
   },
-  "include": ["src"],
-  "exclude": ["dist", "node_modules"]
+  "include": [
+    "src",
+    "../../packages/shared/src"
+  ],
+  "exclude": [
+    "dist",
+    "node_modules"
+  ]
 }

@@ -19,27 +19,24 @@ function readMigrations(dir: string) {
 }
 
 async function ensurePublicMigrationTable() {
-  await db.execute(sql`
+  await sql`
     CREATE TABLE IF NOT EXISTS public.schema_migrations_public (
       name text primary key,
       run_at timestamptz not null default now()
     )
-  `);
+  `.execute(db);
 }
 
 async function ensureTenantMigrationTable(schemaName: string) {
   assertSafeSchemaName(schemaName);
-  await db.execute(sql.raw(`CREATE SCHEMA IF NOT EXISTS ${quoteIdent(schemaName)}`));
-  await db.execute(sql.raw(`CREATE TABLE IF NOT EXISTS ${quoteIdent(schemaName)}.schema_migrations_tenant (name text primary key, run_at timestamptz not null default now())`));
+  await sql.raw(`CREATE SCHEMA IF NOT EXISTS ${quoteIdent(schemaName)}`).execute(db);
+  await sql.raw(`CREATE TABLE IF NOT EXISTS ${quoteIdent(schemaName)}.schema_migrations_tenant (name text primary key, run_at timestamptz not null default now())`).execute(db);
 }
 
 async function appliedForTenant(schemaName: string) {
   assertSafeSchemaName(schemaName);
-  const result = await db.executeQuery<{ name: string }>({
-    sql: `select name from ${quoteIdent(schemaName)}.schema_migrations_tenant`,
-    parameters: []
-  });
-  return new Set(result.rows.map((r) => r.name));
+  const result = await sql.raw(`select name from ${quoteIdent(schemaName)}.schema_migrations_tenant`).execute(db);
+  return new Set(result.rows.map((r: any) => r.name));
 }
 
 async function appliedForPublic() {
@@ -55,8 +52,8 @@ export async function migratePublic() {
   for (const migration of migrations) {
     if (applied.has(migration.file)) continue;
     await db.transaction().execute(async (trx) => {
-      await trx.execute(sql`set local search_path to public`);
-      await trx.execute(sql.raw(migration.sql));
+      await sql`set local search_path to public`.execute(trx);
+      await sql.raw(migration.sql).execute(trx);
       await trx.insertInto('schema_migrations_public').values({ name: migration.file, run_at: new Date() }).execute();
     });
     logger.info({ migration: migration.file }, 'Applied public migration');
@@ -72,7 +69,7 @@ export async function migrateTenant(schemaName: string) {
   for (const migration of migrations) {
     if (applied.has(migration.file)) continue;
     await withTenantTransaction(schemaName, async (tenantDb) => {
-      await tenantDb.execute(sql.raw(migration.sql));
+      await sql.raw(migration.sql).execute(tenantDb);
       await tenantDb.insertInto('schema_migrations_tenant').values({ name: migration.file, run_at: new Date() }).execute();
     });
     logger.info({ schema: schemaName, migration: migration.file }, 'Applied tenant migration');

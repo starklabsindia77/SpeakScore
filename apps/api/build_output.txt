@@ -1,0 +1,40 @@
+src/__tests__/admin.test.ts(111,14): error TS2339: Property 'execute' does not exist on type 'Kysely<Database>'.
+src/__tests__/tenancy.test.ts(109,14): error TS2339: Property 'execute' does not exist on type 'Kysely<Database>'.
+src/__tests__/tenancy.test.ts(110,14): error TS2339: Property 'execute' does not exist on type 'Kysely<Database>'.
+src/__tests__/tenancy.test.ts(118,34): error TS2339: Property 'execute' does not exist on type 'Kysely<Database>'.
+src/__tests__/tenancy.test.ts(133,36): error TS2339: Property 'execute' does not exist on type 'Kysely<Database>'.
+src/__tests__/tenancy.test.ts(137,34): error TS2339: Property 'execute' does not exist on type 'Kysely<Database>'.
+src/__tests__/tenancy.test.ts(142,28): error TS2339: Property 'execute' does not exist on type 'Kysely<Database>'.
+src/__tests__/tenancy.test.ts(182,36): error TS2339: Property 'execute' does not exist on type 'Kysely<Database>'.
+src/__tests__/tenancy.test.ts(187,36): error TS2339: Property 'execute' does not exist on type 'Kysely<Database>'.
+src/db.ts(2,22): error TS7016: Could not find a declaration file for module 'pg'. 'C:/practice-work/SpeakScore/node_modules/.pnpm/pg@8.11.5/node_modules/pg/lib/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/pg` if it exists or add a new declaration (.d.ts) file containing `declare module 'pg';`
+src/db.ts(12,19): error TS7006: Parameter 'err' implicitly has an 'any' type.
+src/db.ts(34,15): error TS2339: Property 'execute' does not exist on type 'Transaction<Database>'.
+src/migrations/runner.ts(22,12): error TS2339: Property 'execute' does not exist on type 'Kysely<Database>'.
+src/migrations/runner.ts(32,12): error TS2339: Property 'execute' does not exist on type 'Kysely<Database>'.
+src/migrations/runner.ts(33,12): error TS2339: Property 'execute' does not exist on type 'Kysely<Database>'.
+src/migrations/runner.ts(38,58): error TS2345: Argument of type '{ sql: string; parameters: never[]; }' is not assignable to parameter of type 'CompiledQuery<{ name: string; }> | Compilable<{ name: string; }>'.
+  Property 'query' is missing in type '{ sql: string; parameters: never[]; }' but required in type 'CompiledQuery<{ name: string; }>'.
+src/migrations/runner.ts(58,17): error TS2339: Property 'execute' does not exist on type 'Transaction<Database>'.
+src/migrations/runner.ts(59,17): error TS2339: Property 'execute' does not exist on type 'Transaction<Database>'.
+src/migrations/runner.ts(75,22): error TS2339: Property 'execute' does not exist on type 'Kysely<Database>'.
+src/plugins/multiTenant.ts(11,18): error TS2683: 'this' implicitly has type 'any' because it does not have a type annotation.
+src/routes/modules/candidates.ts(2,24): error TS7016: Could not find a declaration file for module 'json2csv'. 'C:/practice-work/SpeakScore/node_modules/.pnpm/json2csv@6.0.0-alpha.2/node_modules/json2csv/lib/json2csv.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/json2csv` if it exists or add a new declaration (.d.ts) file containing `declare module 'json2csv';`
+src/routes/modules/public.ts(47,44): error TS2339: Property 'execute' does not exist on type 'Kysely<Database>'.
+src/routes/modules/public.ts(200,24): error TS2339: Property 'execute' does not exist on type 'Kysely<Database>'.
+src/routes/modules/tests.ts(69,46): error TS2339: Property 'execute' does not exist on type 'Kysely<Database>'.
+src/server.ts(19,24): error TS2345: Argument of type 'FastifyInstance<Server<typeof IncomingMessage, typeof ServerResponse>, IncomingMessage, ServerResponse<IncomingMessage>, Logger<...>, FastifyTypeProviderDefault> & PromiseLike<...>' is not assignable to parameter of type 'FastifyInstance<RawServerDefault, IncomingMessage, ServerResponse<IncomingMessage>, FastifyBaseLogger, FastifyTypeProviderDefault>'.
+  The types of 'withTypeProvider().route' are incompatible between these types.
+    Type '<RouteGeneric extends RouteGenericInterface = RouteGenericInterface, ContextConfig = unknown, const SchemaCompiler extends FastifySchema = FastifySchema>(opts: RouteOptions<Server<typeof IncomingMessage, typeof ServerResponse>, ... 6 more ..., Logger<...>>) => FastifyInstance<...>' is not assignable to type '<RouteGeneric extends RouteGenericInterface = RouteGenericInterface, ContextConfig = unknown, const SchemaCompiler extends FastifySchema = FastifySchema>(opts: RouteOptions<RawServerDefault, ... 6 more ..., FastifyBaseLogger>) => FastifyInstance<...>'.
+      Types of parameters 'opts' and 'opts' are incompatible.
+        Type 'RouteOptions<RawServerDefault, IncomingMessage, ServerResponse<IncomingMessage>, any, any, any, any, FastifyBaseLogger>' is not assignable to type 'RouteOptions<Server<typeof IncomingMessage, typeof ServerResponse>, IncomingMessage, ServerResponse<IncomingMessage>, ... 4 more ..., Logger<...>>'.
+          Types of property 'childLoggerFactory' are incompatible.
+            Type 'FastifyChildLoggerFactory<RawServerDefault, IncomingMessage, ServerResponse<IncomingMessage>, FastifyBaseLogger, any> | undefined' is not assignable to type 'FastifyChildLoggerFactory<Server<typeof IncomingMessage, typeof ServerResponse>, IncomingMessage, ServerResponse<IncomingMessage>, Logger<...>, any> | undefined'.
+              Type 'FastifyChildLoggerFactory<RawServerDefault, IncomingMessage, ServerResponse<IncomingMessage>, FastifyBaseLogger, any>' is not assignable to type 'FastifyChildLoggerFactory<Server<typeof IncomingMessage, typeof ServerResponse>, IncomingMessage, ServerResponse<IncomingMessage>, Logger<...>, any>'.
+                Type 'FastifyBaseLogger' is not assignable to type 'Logger<never>'.
+src/services/jobs.ts(5,17): error TS2353: Object literal may only specify known properties, and 'url' does not exist in type 'ConnectionOptions'.
+src/services/jobs.ts(9,17): error TS2353: Object literal may only specify known properties, and 'url' does not exist in type 'ConnectionOptions'.
+src/services/jobs.ts(12,77): error TS2353: Object literal may only specify known properties, and 'url' does not exist in type 'ConnectionOptions'.
+src/services/tenancy.ts(44,12): error TS2339: Property 'execute' does not exist on type 'Kysely<Database>'.

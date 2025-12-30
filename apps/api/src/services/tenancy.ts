@@ -27,7 +27,7 @@ export function schemaFromOrgId(orgId: string) {
 export async function resolveTenant(orgId: string) {
   const org = await db
     .selectFrom('organizations')
-    .select(['id', 'name', 'schema_name', 'status', 'credits_balance'])
+    .select(['id', 'name', 'schema_name', 'status', 'credits_balance', 'created_at', 'updated_at'])
     .where('id', '=', orgId)
     .executeTakeFirst();
   if (!org) {
@@ -41,7 +41,7 @@ export async function resolveTenant(orgId: string) {
 }
 
 export async function ensureOrgSchema(schemaName: string) {
-  await db.execute(sql.raw(`CREATE SCHEMA IF NOT EXISTS "${schemaName}"`));
+  await sql.raw(`CREATE SCHEMA IF NOT EXISTS "${schemaName}"`).execute(db);
   return schemaName;
 }
 

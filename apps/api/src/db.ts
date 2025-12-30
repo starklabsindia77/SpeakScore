@@ -9,7 +9,7 @@ const pool = new Pool({
   max: 10
 });
 
-pool.on('error', (err) => {
+pool.on('error', (err: any) => {
   logger.error({ err }, 'Database pool error');
 });
 
@@ -31,7 +31,7 @@ export function assertSafeSchemaName(schemaName: string) {
 export async function withTenantTransaction<T>(schemaName: string, fn: (tenantDb: Kysely<Database>) => Promise<T>) {
   assertSafeSchemaName(schemaName);
   return db.transaction().execute(async (trx) => {
-    await trx.execute(sql.raw(`set local search_path to ${quoteIdent(schemaName)}, public`));
+    await sql.raw(`set local search_path to ${quoteIdent(schemaName)}, public`).execute(trx);
     return fn(trx as unknown as Kysely<Database>);
   });
 }

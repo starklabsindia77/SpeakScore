@@ -108,7 +108,7 @@ describeIfDb('admin panel RBAC and actions', () => {
   });
 
   afterAll(async () => {
-    await db.execute(sql.raw(`DROP SCHEMA IF EXISTS "${orgSchema}" CASCADE`));
+    await sql.raw(`DROP SCHEMA IF EXISTS "${orgSchema}" CASCADE`).execute(db);
     await db.deleteFrom('organizations').where('id', '=', orgId).execute();
     await db.deleteFrom('platform_admins').where('id', '=', superAdminId).execute();
     await app.close();

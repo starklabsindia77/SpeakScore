@@ -1,4 +1,4 @@
-import { FastifyInstance } from 'fastify';
+import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import fp from 'fastify-plugin';
 import fastifyJwt from '@fastify/jwt';
 import { env } from '../env';
@@ -15,7 +15,7 @@ export default fp(async (app: FastifyInstance) => {
     sign: { expiresIn: '30m' }
   });
 
-  app.decorate('authenticate', async (request: any, reply: any) => {
+  app.decorate('authenticate', async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       await request.jwtVerify<AuthPayload>();
     } catch (err) {
@@ -24,12 +24,15 @@ export default fp(async (app: FastifyInstance) => {
   });
 });
 
+declare module '@fastify/jwt' {
+  interface FastifyJWT {
+    payload: AuthPayload;
+    user: AuthPayload;
+  }
+}
+
 declare module 'fastify' {
   interface FastifyInstance {
     authenticate: any;
-  }
-
-  interface FastifyRequest {
-    user?: AuthPayload;
   }
 }

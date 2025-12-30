@@ -106,8 +106,8 @@ describeIfDb('schema-per-tenant isolation', () => {
   });
 
   afterAll(async () => {
-    await db.execute(sql.raw(`DROP SCHEMA IF EXISTS "${orgA.schema}" CASCADE`));
-    await db.execute(sql.raw(`DROP SCHEMA IF EXISTS "${orgB.schema}" CASCADE`));
+    await sql.raw(`DROP SCHEMA IF EXISTS "${orgA.schema}" CASCADE`).execute(db);
+    await sql.raw(`DROP SCHEMA IF EXISTS "${orgB.schema}" CASCADE`).execute(db);
     await db.deleteFrom('organizations').where('id', '=', orgA.id).execute();
     await db.deleteFrom('organizations').where('id', '=', orgB.id).execute();
     await closeDb();
@@ -115,7 +115,7 @@ describeIfDb('schema-per-tenant isolation', () => {
 
   it('sets search_path per tenant and isolates data', async () => {
     const schema = await withTenantTransaction(orgA.schema, async (tenantDb) => {
-      const res = await tenantDb.execute(sql`select current_schema() as current`);
+      const res = await sql`select current_schema() as current`.execute(tenantDb);
       return (res.rows[0] as any).current as string;
     });
     expect(schema).toBe(orgA.schema);
@@ -130,16 +130,16 @@ describeIfDb('schema-per-tenant isolation', () => {
   });
 
   it('resets search_path between requests', async () => {
-    const defaultSchema = await db.execute(sql`select current_schema() as current`);
+    const defaultSchema = await sql`select current_schema() as current`.execute(db);
     expect((defaultSchema.rows[0] as any).current).toBe('public');
 
     const schemaB = await withTenantTransaction(orgB.schema, async (tenantDb) => {
-      const res = await tenantDb.execute(sql`select current_schema() as current`);
+      const res = await sql`select current_schema() as current`.execute(tenantDb);
       return (res.rows[0] as any).current as string;
     });
     expect(schemaB).toBe(orgB.schema);
 
-    const after = await db.execute(sql`select current_schema() as current`);
+    const after = await sql`select current_schema() as current`.execute(db);
     expect((after.rows[0] as any).current).toBe('public');
   });
 
@@ -179,12 +179,12 @@ describeIfDb('schema-per-tenant isolation', () => {
     const [schemaA, schemaB] = await Promise.all([
       withTenantTransaction(orgA.schema, async (tenantDb) => {
         await tenantDb.insertInto('audit_logs').values({ id: randomUUID(), org_id: orgA.id, actor_user_id: null, action: 'ping', meta_json: null, created_at: new Date() }).execute();
-        const res = await tenantDb.execute(sql`select current_schema() as current`);
+        const res = await sql`select current_schema() as current`.execute(tenantDb);
         return (res.rows[0] as any).current as string;
       }),
       withTenantTransaction(orgB.schema, async (tenantDb) => {
         await tenantDb.insertInto('audit_logs').values({ id: randomUUID(), org_id: orgB.id, actor_user_id: null, action: 'ping', meta_json: null, created_at: new Date() }).execute();
-        const res = await tenantDb.execute(sql`select current_schema() as current`);
+        const res = await sql`select current_schema() as current`.execute(tenantDb);
         return (res.rows[0] as any).current as string;
       })
     ]);

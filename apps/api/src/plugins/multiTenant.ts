@@ -16,7 +16,7 @@ export default fp(async (app: FastifyInstance) => {
   });
 
   app.addHook('preHandler', async (request, reply) => {
-    if (request.url.startsWith('/public')) return;
+    if (request.url.startsWith('/public') || request.url.startsWith('/api/auth')) return;
     const user = request.user as { orgId?: string; role?: string } | undefined;
     if (!user) {
       return reply.unauthorized('Missing auth context');
