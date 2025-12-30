@@ -642,6 +642,14 @@ function AdminOrganizationsPage() {
   const [selectedOrg, setSelectedOrg] = useState<AdminOrg | null>(null);
   const [creditsInput, setCreditsInput] = useState(10);
   const [note, setNote] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
+  const [newOrg, setNewOrg] = useState({
+    name: '',
+    schemaName: '',
+    creditsBalance: 100,
+    adminEmail: '',
+    adminPassword: ''
+  });
 
   async function loadOrgs() {
     setLoading(true);
@@ -682,6 +690,28 @@ function AdminOrganizationsPage() {
     setNote('');
   }
 
+  async function handleCreateOrg(e: React.FormEvent) {
+    e.preventDefault();
+    setError('');
+    try {
+      const created = await apiFetch<AdminOrg>('/api/admin/orgs', {
+        method: 'POST',
+        body: JSON.stringify(newOrg)
+      });
+      setOrgs((prev) => [created, ...prev]);
+      setIsCreating(false);
+      setNewOrg({
+        name: '',
+        schemaName: '',
+        creditsBalance: 100,
+        adminEmail: '',
+        adminPassword: ''
+      });
+    } catch (err: any) {
+      setError(err.message);
+    }
+  }
+
   return (
     <AdminLayout>
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -689,7 +719,15 @@ function AdminOrganizationsPage() {
           <p className="text-xs uppercase tracking-[0.08em] text-slate-500">Platform control</p>
           <h1 className="text-2xl font-semibold text-slate-900">Organizations</h1>
         </div>
-        <Badge tone="neutral">{orgs.length} orgs</Badge>
+        <div className="flex items-center gap-3">
+          <Badge tone="neutral">{orgs.length} orgs</Badge>
+          <button
+            onClick={() => setIsCreating(true)}
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700"
+          >
+            Create Organization
+          </button>
+        </div>
       </div>
       {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
@@ -774,9 +812,101 @@ function AdminOrganizationsPage() {
           </div>
         </div>
       )}
+
+      {isCreating && (
+        <div className="fixed inset-0 z-20 flex items-center justify-center bg-slate-900/40 px-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-slate-900">Create New Organization</h2>
+              <button onClick={() => setIsCreating(false)} className="text-slate-500 hover:text-slate-700">
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <form onSubmit={handleCreateOrg} className="mt-4 space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="text-xs font-semibold text-slate-700">Organization Name</label>
+                  <input
+                    required
+                    value={newOrg.name}
+                    onChange={(e) => setNewOrg((prev) => ({ ...prev, name: e.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                    placeholder="e.g. Acme Corp"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-700">Schema Name (Optional)</label>
+                  <input
+                    value={newOrg.schemaName}
+                    onChange={(e) => setNewOrg((prev) => ({ ...prev, schemaName: e.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                    placeholder="e.g. acme_corp"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-700">Initial Credits</label>
+                <input
+                  type="number"
+                  required
+                  min={0}
+                  value={newOrg.creditsBalance}
+                  onChange={(e) => setNewOrg((prev) => ({ ...prev, creditsBalance: parseInt(e.target.value) || 0 }))}
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                />
+              </div>
+              <div className="border-t pt-4">
+                <h3 className="text-sm font-semibold text-slate-800">Admin User Account</h3>
+                <div className="mt-3 grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700">Admin Email</label>
+                    <input
+                      type="email"
+                      required
+                      value={newOrg.adminEmail}
+                      onChange={(e) => setNewOrg((prev) => ({ ...prev, adminEmail: e.target.value }))}
+                      className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                      placeholder="admin@acme.com"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700">Admin Password</label>
+                    <input
+                      type="password"
+                      required
+                      value={newOrg.adminPassword}
+                      onChange={(e) => setNewOrg((prev) => ({ ...prev, adminPassword: e.target.value }))}
+                      className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                      placeholder="••••••••"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 border-t pt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsCreating(false)}
+                  className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-lg bg-blue-600 px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-100 hover:bg-blue-700"
+                >
+                  Provision Organization
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 }
+
 
 function AdminOrgDetailPage() {
   const { id } = useParams();

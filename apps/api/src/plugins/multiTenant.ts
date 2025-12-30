@@ -1,4 +1,4 @@
-import { FastifyInstance } from 'fastify';
+import { FastifyInstance, FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
 import { Kysely } from 'kysely';
 import { resolveTenant, TenantAccessError } from '../services/tenancy';
@@ -7,8 +7,8 @@ import { withTenantTransaction } from '../db';
 
 export default fp(async (app: FastifyInstance) => {
   app.decorateRequest('tenant', null);
-  app.decorateRequest('withTenantDb', async function <T>(cb: (db: Kysely<Database>) => Promise<T>): Promise<T> {
-    const ctx = (this as any).tenant as { schemaName: string } | null;
+  app.decorateRequest('withTenantDb', async function <T>(this: FastifyRequest, cb: (db: Kysely<Database>) => Promise<T>): Promise<T> {
+    const ctx = this.tenant;
     if (!ctx) {
       throw new Error('Tenant context missing');
     }
@@ -16,18 +16,32 @@ export default fp(async (app: FastifyInstance) => {
   });
 
   app.addHook('preHandler', async (request, reply) => {
-    if (request.url.startsWith('/public') || request.url.startsWith('/api/auth')) return;
+    // Skip public, auth, and admin management routes
+    if (
+      request.url.startsWith('/public') ||
+      request.url.startsWith('/api/auth') ||
+      request.url.startsWith('/api/admin')
+    ) {
+      return;
+    }
+
+    // Ensure authentication has been performed for all other /api routes
+    try {
+      await app.authenticate(request, reply);
+    } catch (err) {
+      // app.authenticate handles its own errors/replies
+      return;
+    }
+
     const user = request.user as { orgId?: string; role?: string } | undefined;
     if (!user) {
       return reply.unauthorized('Missing auth context');
     }
-    if (user.role === 'SUPER_ADMIN') {
-      if (request.url.startsWith('/api/admin')) return;
-      return reply.forbidden('SUPER_ADMIN access limited to admin endpoints');
-    }
+
     if (!user.orgId) {
       return reply.unauthorized('Missing org context');
     }
+
     let org;
     try {
       org = await resolveTenant(user.orgId);
@@ -41,10 +55,12 @@ export default fp(async (app: FastifyInstance) => {
       request.log.error({ err }, 'Failed to resolve tenant');
       return reply.internalServerError();
     }
+
     if (!org) {
       return reply.badRequest('Organization unavailable');
     }
-    (request as any).tenant = { orgId: org.id, schemaName: org.schema_name };
+
+    request.tenant = { orgId: org.id, schemaName: org.schema_name };
   });
 });
 
