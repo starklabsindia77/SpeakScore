@@ -2,8 +2,10 @@ export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 export async function apiFetch<T>(path: string, options: RequestInit = {}) {
   const token = localStorage.getItem('accessToken');
+  const isFormData = options.body instanceof FormData;
+
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(!isFormData ? { 'Content-Type': 'application/json' } : {}),
     ...(options.headers as Record<string, string>),
     ...(token ? { Authorization: `Bearer ${token}` } : {})
   };

@@ -34,6 +34,8 @@
     "fastify-type-provider-zod": "2.1.0",
     "json2csv": "6.0.0-alpha.2",
     "kysely": "0.27.3",
+    "mammoth": "^1.11.0",
+    "pdf-parse": "^2.4.5",
     "pg": "8.11.5",
     "pino": "9.2.0",
     "pino-pretty": "11.0.0",

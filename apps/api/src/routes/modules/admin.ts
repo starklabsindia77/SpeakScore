@@ -202,4 +202,29 @@ export async function adminRoutes(app: FastifyInstance) {
       createdAt: row.created_at
     }));
   });
+
+  app.get('/settings/ai', { preHandler: [app.authorize(['SUPER_ADMIN']), adminRateLimit] }, async () => {
+    const setting = await db.selectFrom('platform_settings').selectAll().where('key', '=', 'ai_config').executeTakeFirst();
+    return setting?.value ?? { provider: 'gemini', apiKeys: [], model: 'gemini-1.5-pro' };
+  });
+
+  app.post('/settings/ai', { preHandler: [app.authorize(['SUPER_ADMIN']), adminRateLimit] }, async (request) => {
+    const { aiConfigSchema } = await import('@speakscore/shared');
+    const data = aiConfigSchema.parse(request.body);
+    await db
+      .insertInto('platform_settings')
+      .values({
+        key: 'ai_config',
+        value: JSON.stringify(data),
+        updated_at: new Date()
+      })
+      .onConflict((oc) =>
+        oc.column('key').doUpdateSet({
+          value: JSON.stringify(data),
+          updated_at: new Date()
+        })
+      )
+      .execute();
+    return { success: true };
+  });
 }

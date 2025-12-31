@@ -5,6 +5,7 @@ import { useAuth } from './auth';
 
 const recruiterNav = [
   { label: 'Dashboard', to: '/dashboard' },
+  { label: 'Batches', to: '/batches' },
   { label: 'Tests', to: '/tests' },
   { label: 'Candidates', to: '/candidates' },
   { label: 'Review queue', to: '/review' }
@@ -13,7 +14,8 @@ const recruiterNav = [
 const orgAdminNav = [
   ...recruiterNav,
   { label: 'Team members', to: '/org/users' },
-  { label: 'Roles & Permissions', to: '/org/roles' }
+  { label: 'Roles & Permissions', to: '/org/roles' },
+  { label: 'Email Templates', to: '/org/templates' }
 ];
 
 function Badge({ children, tone = 'neutral' }: { children: React.ReactNode; tone?: 'neutral' | 'success' | 'warning' | 'danger' }) {
@@ -28,6 +30,94 @@ function Badge({ children, tone = 'neutral' }: { children: React.ReactNode; tone
 
 function OrgStatusBadge({ status }: { status: string }) {
   return <Badge tone={status === 'ACTIVE' ? 'success' : 'danger'}>{status}</Badge>;
+}
+
+
+function NotificationBell() {
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [show, setShow] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Poll for notifications
+  useEffect(() => {
+    async function fetchNotes() {
+      try {
+        const res = await apiFetch<any[]>('/api/notifications');
+        setNotifications(res);
+        setUnreadCount(res.filter((n) => !n.is_read).length);
+      } catch (e) {
+        // fail silently
+      }
+    }
+    fetchNotes(); // initial
+    const interval = setInterval(fetchNotes, 30000); // poll every 30s
+    return () => clearInterval(interval);
+  }, []);
+
+  async function markRead(id: string) {
+    try {
+      await apiFetch(`/api/notifications/${id}/read`, { method: 'PATCH' });
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
+      );
+      setUnreadCount((c) => Math.max(0, c - 1));
+    } catch (e) {/* ignore */ }
+  }
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setShow(!show)}
+        className="relative flex items-center justify-center rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+      >
+        <span className="sr-only">Notifications</span>
+        {/* Bell Icon */}
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-5 w-5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+        </svg>
+        {unreadCount > 0 && (
+          <span className="absolute right-1.5 top-1.5 flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500"></span>
+          </span>
+        )}
+      </button>
+
+      {show && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setShow(false)}></div>
+          <div className="absolute right-0 top-full z-20 mt-2 w-80 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-xl ring-1 ring-black ring-opacity-5">
+            <div className="bg-slate-50 px-4 py-3 border-b border-slate-100">
+              <p className="text-sm font-semibold text-slate-900">Notifications</p>
+            </div>
+            <div className="max-h-80 overflow-y-auto divide-y divide-slate-50">
+              {notifications.length === 0 && (
+                <div className="p-4 text-center text-xs text-slate-500">No new notifications.</div>
+              )}
+              {notifications.map((n) => (
+                <div key={n.id} onClick={() => !n.is_read && markRead(n.id)} className={`cursor-pointer px-4 py-3 hover:bg-slate-50 ${n.is_read ? 'opacity-60' : 'bg-blue-50/30'}`}>
+                  <div className="flex justify-between">
+                    <p className={`text-sm font-medium ${n.is_read ? 'text-slate-600' : 'text-slate-900'}`}>{n.title}</p>
+                    {!n.is_read && <span className="h-1.5 w-1.5 rounded-full bg-blue-500 flex-shrink-0 mt-1.5"></span>}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{n.message}</p>
+                  <p className="text-[10px] text-slate-400 mt-1">{formatTimeAgo(new Date(n.created_at || new Date()))}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function formatTimeAgo(date: Date) {
+  const diff = (new Date().getTime() - date.getTime()) / 1000;
+  if (diff < 60) return 'Just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
 }
 
 function Layout({ children }: { children: React.ReactNode }) {
@@ -76,6 +166,7 @@ function Layout({ children }: { children: React.ReactNode }) {
             </div>
             <div className="flex items-center gap-3">
               <Badge tone="neutral">Multi-tenant</Badge>
+              <NotificationBell />
               <Badge tone="warning">Pilot</Badge>
               {user && <Badge tone={user.role === 'SUPER_ADMIN' ? 'danger' : 'neutral'}>{user.role}</Badge>}
               {user && (
@@ -321,9 +412,12 @@ function TestDetail() {
   const [linkInfo, setLinkInfo] = useState<{ token: string } | null>(null);
   const [candidateName, setCandidateName] = useState('Alex Candidate');
   const [candidateEmail, setCandidateEmail] = useState('alex@example.com');
+  const [batches, setBatches] = useState<any[]>([]);
+  const [selectedBatchId, setSelectedBatchId] = useState('');
 
   useEffect(() => {
     if (id) apiFetch<any>(`/api/tests/${id}`).then(setTest);
+    apiFetch<any[]>('/api/batches').then(setBatches).catch(() => setBatches([]));
   }, [id]);
 
   async function generateLink() {
@@ -356,6 +450,17 @@ function TestDetail() {
     apiFetch<any>(`/api/tests/${id}`).then(setTest);
   }
 
+  async function handleBatchInvite() {
+    if (!id || !selectedBatchId) return;
+    const batchData = await apiFetch<any>(`/api/batches/${selectedBatchId}`);
+    const res = await apiFetch<any>(`/api/tests/${id}/links/bulk`, {
+      method: 'POST',
+      body: JSON.stringify({ candidates: batchData.candidates })
+    });
+    setBulkLinks(res.invitations);
+    apiFetch<any>(`/api/tests/${id}`).then(setTest);
+  }
+
   return (
     <Layout>
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -383,7 +488,29 @@ function TestDetail() {
           </div>
 
           <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900">Bulk Invite</h2>
+            <h2 className="text-lg font-semibold text-slate-900">Invite from Batch</h2>
+            <p className="text-sm text-slate-500">Select a pre-configured candidate batch to send invitations.</p>
+            <div className="mt-3 flex gap-3">
+              <select
+                value={selectedBatchId}
+                onChange={(e) => setSelectedBatchId(e.target.value)}
+                className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              >
+                <option value="">Select a batch...</option>
+                {batches.map(b => <option key={b.id} value={b.id}>{b.name} ({b.candidates?.length || 0} candidates)</option>)}
+              </select>
+              <button
+                onClick={handleBatchInvite}
+                disabled={!selectedBatchId}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700 disabled:opacity-50"
+              >
+                Invite Batch
+              </button>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+            <h2 className="text-lg font-semibold text-slate-900">Direct Bulk Invite</h2>
             <p className="text-sm text-slate-500">Paste names and emails (one per line, e.g. "John Doe, john@example.com")</p>
             <textarea
               value={bulkInput}
@@ -658,6 +785,278 @@ function formatDate(value?: string | Date | null) {
   return date.toLocaleString();
 }
 
+function BatchesPage() {
+  const [batches, setBatches] = useState<any[]>([]);
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+
+  useEffect(() => {
+    apiFetch<any[]>('/api/batches').then(setBatches).catch(() => setBatches([]));
+  }, []);
+
+  async function createBatch() {
+    if (!name.trim()) return;
+    const created = await apiFetch<any>('/api/batches', {
+      method: 'POST',
+      body: JSON.stringify({ name, description })
+    });
+    setBatches((prev) => [created, ...prev]);
+    setName('');
+    setDescription('');
+  }
+
+  return (
+    <Layout>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-[0.08em] text-slate-500">Logistics</p>
+            <h1 className="text-2xl font-semibold text-slate-900">Candidate Batches</h1>
+          </div>
+          <button onClick={createBatch} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700">Create batch</button>
+        </div>
+        <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+          <p className="text-sm font-semibold text-slate-900">New batch</p>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <div>
+              <label className="text-xs font-semibold text-slate-600">Batch Name</label>
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Frontend Leads Jan 2026" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-600">Description</label>
+              <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional details..." className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+            </div>
+          </div>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+          {batches.map((b) => (
+            <Link key={b.id} to={`/batches/${b.id}`} className="group flex flex-col rounded-2xl border border-slate-100 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+              <div className="flex items-center justify-between">
+                <p className="text-lg font-semibold text-slate-900">{b.name}</p>
+                <Badge tone="neutral">Active</Badge>
+              </div>
+              <p className="mt-1 text-sm text-slate-500 line-clamp-2">{b.description || 'No description provided'}</p>
+              <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
+                <span>Created: {formatDate(b.createdAt)}</span>
+                <span className="font-semibold text-blue-600 group-hover:underline">Manage candidates →</span>
+              </div>
+            </Link>
+          ))}
+          {batches.length === 0 && <div className="md:col-span-2 lg:col-span-3"><EmptyState title="No batches yet" description="Create a batch to start organizing your candidates." /></div>}
+        </div>
+      </div>
+    </Layout>
+  );
+}
+
+function BatchDetail() {
+  const { id } = useParams();
+  const [batch, setBatch] = useState<any>(null);
+  const [candidates, setCandidates] = useState<any[]>([]);
+  const [candidateName, setCandidateName] = useState('');
+  const [candidateEmail, setCandidateEmail] = useState('');
+  const [bulkInput, setBulkInput] = useState('');
+  const [showBulk, setShowBulk] = useState(false);
+  const [isParsing, setIsParsing] = useState(false);
+  const [resumeFiles, setResumeFiles] = useState<File[]>([]);
+
+  async function loadBatch() {
+    if (!id) return;
+    const res = await apiFetch<any>(`/api/batches/${id}`);
+    setBatch(res);
+    setCandidates(res.candidates || []);
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    if (e.target.files && e.target.files.length > 0) {
+      setResumeFiles(Array.from(e.target.files));
+    } else {
+      setResumeFiles([]);
+    }
+  }
+
+  useEffect(() => {
+    loadBatch();
+  }, [id]);
+
+  async function addCandidate() {
+    if (!id || !candidateName || !candidateEmail) return;
+    await apiFetch('/api/candidates', {
+      method: 'POST',
+      body: JSON.stringify({ candidateName, candidateEmail, batchId: id })
+    });
+    setCandidateName('');
+    setCandidateEmail('');
+    loadBatch();
+  }
+
+  async function handleBulkUpload() {
+    if (!id || !bulkInput.trim()) return;
+    const lines = bulkInput.split('\n').filter((l) => l.trim());
+    const list = lines.map((line) => {
+      const parts = line.split(/[,\t]/);
+      return { name: parts[0]?.trim(), email: (parts[1] || parts[0])?.trim() };
+    });
+    await apiFetch('/api/candidates/bulk', {
+      method: 'POST',
+      body: JSON.stringify({ batchId: id, candidates: list })
+    });
+    setBulkInput('');
+    setShowBulk(false);
+    loadBatch();
+  }
+
+  async function handleAiParse() {
+    if (!bulkInput.trim() && resumeFiles.length === 0) {
+      alert('Please paste resume text OR select files.');
+      return;
+    }
+    setIsParsing(true);
+    try {
+      if (resumeFiles.length > 0) {
+        if (!id) return;
+        const formData = new FormData();
+        formData.append('batchId', id);
+        resumeFiles.forEach(f => formData.append('files', f));
+
+        const res = await apiFetch<any>('/api/candidates/import/cv-bulk', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (res.success) {
+          alert(`Successfully added ${res.count} candidates from files.`);
+          setResumeFiles([]);
+          setShowBulk(false);
+          loadBatch();
+        } else {
+          alert('Partial success or no candidates found.');
+        }
+
+      } else {
+        const data = await apiFetch<any>('/api/candidates/parse-cv', {
+          method: 'POST',
+          body: JSON.stringify({ text: bulkInput })
+        });
+        setCandidateName(data.name || '');
+        setCandidateEmail(data.email || '');
+        setShowBulk(false);
+      }
+    } catch (e: any) {
+      alert('AI Parsing failed: ' + e.message);
+    } finally {
+      setIsParsing(false);
+    }
+  }
+
+  if (!batch) return <Layout><p className="py-10 text-center text-slate-500 text-sm">Loading batch details...</p></Layout>;
+
+  return (
+    <Layout>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-[0.08em] text-slate-500">Batch management</p>
+            <h1 className="text-2xl font-semibold text-slate-900">{batch.name}</h1>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => setShowBulk(!showBulk)} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
+              {showBulk ? 'Hide Import' : 'Bulk / AI Import'}
+            </button>
+          </div>
+        </div>
+
+        {showBulk && (
+          <div className="rounded-2xl border border-blue-100 bg-blue-50/30 p-4 shadow-sm">
+            <h2 className="text-sm font-semibold text-blue-900">Bulk Import & AI Parsing</h2>
+            <p className="text-xs text-blue-700">Paste CSV list or Resume text, OR upload files (PDF/DOCX).</p>
+            <textarea
+              value={bulkInput}
+              onChange={(e) => setBulkInput(e.target.value)}
+              rows={5}
+              className="mt-3 w-full rounded-lg border border-slate-200 p-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              placeholder="Full Resume Text... OR ... Name, Email"
+            />
+
+            <div className="mt-3">
+              <input
+                type="file"
+                multiple
+                accept=".pdf,.docx,.doc,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                onChange={handleFileChange}
+                className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200"
+              />
+              {resumeFiles.length > 0 && <p className="mt-1 text-xs font-medium text-green-600">Selected: {resumeFiles.length} file(s)</p>}
+            </div>
+
+            <div className="mt-4 flex gap-2">
+              <button disabled={isParsing} onClick={handleBulkUpload} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700 disabled:opacity-50">
+                Process as CSV
+              </button>
+              <button disabled={isParsing} onClick={handleAiParse} className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-slate-800 disabled:opacity-50">
+                {isParsing ? 'AI Parsing...' : 'Parse (AI)'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="lg:col-span-2 space-y-4">
+            <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+              <h2 className="text-sm font-semibold text-slate-900">Manual Entry</h2>
+              <div className="mt-3 grid gap-3 md:grid-cols-3">
+                <input placeholder="Name" value={candidateName} onChange={(e) => setCandidateName(e.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+                <input placeholder="Email" value={candidateEmail} onChange={(e) => setCandidateEmail(e.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+                <button onClick={addCandidate} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700">Add to batch</button>
+              </div>
+            </div>
+
+            <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+              <table className="min-w-full divide-y divide-slate-100 text-sm">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Name</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Email</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {candidates.map((c) => (
+                    <tr key={c.id} className="hover:bg-slate-50/70">
+                      <td className="px-4 py-3 font-semibold text-slate-900">{c.name}</td>
+                      <td className="px-4 py-3 text-slate-600">{c.email}</td>
+                      <td className="px-4 py-3">
+                        <Badge tone="neutral">IN BATCH</Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {candidates.length === 0 && <EmptyState title="No candidates" description="Add candidates to this batch manually or via CSV/CV." />}
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+              <h3 className="text-sm font-semibold text-slate-900">Batch Info</h3>
+              <p className="mt-2 text-sm text-slate-600 line-clamp-3">{batch.description || 'No description provided.'}</p>
+              <div className="mt-4 pt-4 border-t border-slate-50 space-y-2">
+                <p className="text-xs text-slate-500">Total Count: <span className="font-semibold text-slate-800">{candidates.length}</span></p>
+                <p className="text-xs text-slate-500">Created: <span className="font-semibold text-slate-800">{formatDate(batch.createdAt)}</span></p>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-blue-50 bg-white p-4 shadow-sm ring-1 ring-blue-50">
+              <h3 className="text-sm font-semibold text-blue-900">Next Step</h3>
+              <p className="mt-1 text-xs text-blue-700">Link this batch to an active assessment in the Tests control center.</p>
+              <Link to="/tests" className="mt-3 inline-block rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-700">Go to Tests</Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Layout>
+  );
+}
+
 function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -684,6 +1083,9 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
           </NavLink>
           <NavLink to="/admin/logs" className={({ isActive }) => (isActive ? 'text-blue-700' : 'hover:text-blue-600')}>
             Platform logs
+          </NavLink>
+          <NavLink to="/admin/settings" className={({ isActive }) => (isActive ? 'text-blue-700' : 'hover:text-blue-600')}>
+            Settings
           </NavLink>
         </div>
       </header>
@@ -1399,6 +1801,311 @@ function AdminLogsPage() {
   );
 }
 
+function AdminSettingsPage() {
+  const [config, setConfig] = useState<any>({ provider: 'gemini', apiKeys: [], model: 'gemini-1.5-pro' });
+  const [newKey, setNewKey] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    apiFetch<any>('/api/admin/settings/ai')
+      .then(setConfig)
+      .catch((err) => setError(err.message));
+  }, []);
+
+  async function handleSave() {
+    setLoading(true);
+    setError('');
+    setSuccess(false);
+    try {
+      await apiFetch('/api/admin/settings/ai', {
+        method: 'POST',
+        body: JSON.stringify(config)
+      });
+      setSuccess(true);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function addKey() {
+    if (!newKey.trim()) return;
+    setConfig({ ...config, apiKeys: [...config.apiKeys, newKey.trim()] });
+    setNewKey('');
+  }
+
+  function removeKey(index: number) {
+    const updated = [...config.apiKeys];
+    updated.splice(index, 1);
+    setConfig({ ...config, apiKeys: updated });
+  }
+
+  return (
+    <AdminLayout>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-[0.08em] text-slate-500">Platform Settings</p>
+          <h1 className="text-2xl font-semibold text-slate-900">AI Configuration</h1>
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={loading}
+          className="rounded-lg bg-blue-600 px-6 py-2 text-sm font-semibold text-white shadow-lg hover:bg-blue-700 disabled:opacity-50"
+        >
+          {loading ? 'Saving...' : 'Save Changes'}
+        </button>
+      </div>
+
+      {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {success && <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">Settings saved successfully!</p>}
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="space-y-6">
+          <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-slate-900">Provider Selection</h2>
+            <p className="text-sm text-slate-500">Choose the primary AI service for the platform.</p>
+            <div className="mt-4 space-y-3">
+              {['gemini', 'openai', 'claude'].map((p) => (
+                <label
+                  key={p}
+                  className={`flex cursor-pointer items-center justify-between rounded-xl border p-4 transition ${config.provider === p ? 'border-blue-500 bg-blue-50/50' : 'border-slate-100 hover:bg-slate-50'
+                    }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="radio"
+                      name="provider"
+                      className="h-4 w-4 text-blue-600"
+                      checked={config.provider === p}
+                      onChange={() => setConfig({ ...config, provider: p })}
+                    />
+                    <span className="text-sm font-semibold uppercase text-slate-700">{p}</span>
+                  </div>
+                  {p === 'gemini' && <Badge tone="neutral">DEFAULT</Badge>}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-slate-900">Model Configuration</h2>
+            <div className="mt-4 space-y-4">
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Model Name</label>
+                <input
+                  value={config.model || ''}
+                  onChange={(e) => setConfig({ ...config, model: e.target.value })}
+                  placeholder="e.g. gemini-1.5-pro, gpt-4, etc."
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+              {config.provider === 'gemini' && (
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Project ID (GCP)</label>
+                  <input
+                    value={config.projectId || ''}
+                    onChange={(e) => setConfig({ ...config, projectId: e.target.value })}
+                    placeholder="Your Google Cloud Project ID"
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-slate-900">API Gateway & Failsafe Keys</h2>
+          <p className="text-sm text-slate-500">Manage multiple API keys. The system will failover if a key hits rate limits.</p>
+
+          <div className="mt-4 flex gap-2">
+            <input
+              type="password"
+              placeholder="Enter API Key"
+              value={newKey}
+              onChange={(e) => setNewKey(e.target.value)}
+              className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            />
+            <button
+              onClick={addKey}
+              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-md hover:bg-slate-800"
+            >
+              Add Key
+            </button>
+          </div>
+
+          <div className="mt-6 space-y-3">
+            {config.apiKeys.map((key: string, idx: number) => (
+              <div key={idx} className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50 px-4 py-3">
+                <div className="flex flex-col">
+                  <span className="text-xs font-semibold text-slate-500">KEY {idx + 1}</span>
+                  <span className="font-mono text-sm text-slate-700">••••••••••••{key.slice(-4)}</span>
+                </div>
+                <button
+                  onClick={() => removeKey(idx)}
+                  className="text-xs font-bold text-red-600 hover:text-red-700"
+                >
+                  REMOVE
+                </button>
+              </div>
+            ))}
+            {config.apiKeys.length === 0 && (
+              <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 py-10 text-center">
+                <p className="text-sm font-medium text-slate-400">No keys added yet.</p>
+                <p className="text-xs text-slate-400">Add at least one key to enable AI features.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </AdminLayout>
+  );
+}
+
+
+function TemplatesPage() {
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [showModal, setShowModal] = useState(false);
+  const [current, setCurrent] = useState<any>({ name: '', type: 'INVITE', subject: '', body: '', isDefault: false });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  async function loadTemplates() {
+    setLoading(true);
+    try {
+      const res = await apiFetch<any[]>('/api/templates');
+      setTemplates(res);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { loadTemplates(); }, []);
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    try {
+      if (current.id) {
+        await apiFetch(`/api/templates/${current.id}`, { method: 'PATCH', body: JSON.stringify(current) });
+      } else {
+        await apiFetch('/api/templates', { method: 'POST', body: JSON.stringify(current) });
+      }
+      setShowModal(false);
+      loadTemplates();
+    } catch (e: any) {
+      setError(e.message);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm('Are you sure?')) return;
+    try {
+      await apiFetch(`/api/templates/${id}`, { method: 'DELETE' });
+      loadTemplates();
+    } catch (e: any) {
+      setError(e.message);
+    }
+  }
+
+  function openEdit(t: any) {
+    setCurrent({ ...t });
+    setShowModal(true);
+  }
+
+  function openNew() {
+    setCurrent({ name: '', type: 'INVITE', subject: '', body: '', isDefault: false });
+    setShowModal(true);
+  }
+
+  return (
+    <Layout>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">Email Templates</h1>
+          <p className="text-sm text-slate-500">Customize automated emails for your organization.</p>
+        </div>
+        <button onClick={openNew} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700">
+          New Template
+        </button>
+      </div>
+
+      {error && <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+
+      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+        {templates.map(t => (
+          <div key={t.id} className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-slate-900">{t.name}</h3>
+                  {t.is_default && <Badge tone="neutral">Default</Badge>}
+                </div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mt-1">{t.type}</p>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => openEdit(t)} className="text-xs font-semibold text-blue-600 hover:text-blue-700">Edit</button>
+                <button onClick={() => handleDelete(t.id)} className="text-xs font-semibold text-red-600 hover:text-red-700">Delete</button>
+              </div>
+            </div>
+            <p className="mt-3 text-sm font-medium text-slate-700">Subject: <span className="font-normal">{t.subject}</span></p>
+            <p className="mt-2 line-clamp-2 text-xs text-slate-500">{t.body}</p>
+          </div>
+        ))}
+        {templates.length === 0 && !loading && (
+          <div className="col-span-2 py-10 text-center text-slate-500 text-sm">No templates defined. System defaults will be used.</div>
+        )}
+      </div>
+
+      {showModal && (
+        <div className="fixed inset-0 z-20 flex items-center justify-center bg-slate-900/40 px-4">
+          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl">
+            <h2 className="text-xl font-semibold">{current.id ? 'Edit Template' : 'New Template'}</h2>
+            <form onSubmit={handleSave} className="mt-4 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-semibold">Template Name</label>
+                  <input required value={current.name} onChange={e => setCurrent({ ...current, name: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" placeholder="e.g. Friendly Invite" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold">Type</label>
+                  <select value={current.type} onChange={e => setCurrent({ ...current, type: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm">
+                    <option value="INVITE">Invitation</option>
+                    <option value="REMINDER">Reminder</option>
+                    <option value="RESULT">Results</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold">Subject Line</label>
+                <input required value={current.subject} onChange={e => setCurrent({ ...current, subject: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" placeholder="Subject..." />
+              </div>
+              <div>
+                <label className="text-xs font-semibold">Email Body</label>
+                <p className="mb-1 text-[10px] text-slate-400">Supported variables: {'{{candidate_name}}'}, {'{{test_link}}'}, {'{{org_name}}'}</p>
+                <textarea required value={current.body} onChange={e => setCurrent({ ...current, body: e.target.value })} rows={6} className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Hi {{candidate_name}}..." />
+              </div>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={current.isDefault || false} onChange={e => setCurrent({ ...current, isDefault: e.target.checked })} />
+                <span className="text-sm font-medium">Set as default for {current.type}</span>
+              </label>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={() => setShowModal(false)} className="text-sm font-semibold text-slate-600">Cancel</button>
+                <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow">Save Template</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </Layout>
+  );
+}
+
 export default function App() {
   return (
     <Routes>
@@ -1408,13 +2115,17 @@ export default function App() {
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/tests" element={<ProtectedRoute><TestsList /></ProtectedRoute>} />
       <Route path="/tests/:id" element={<ProtectedRoute><TestDetail /></ProtectedRoute>} />
+      <Route path="/batches" element={<ProtectedRoute><BatchesPage /></ProtectedRoute>} />
+      <Route path="/batches/:id" element={<ProtectedRoute><BatchDetail /></ProtectedRoute>} />
       <Route path="/candidates" element={<ProtectedRoute><CandidatesPage /></ProtectedRoute>} />
       <Route path="/review" element={<ProtectedRoute><ReviewQueue /></ProtectedRoute>} />
       <Route path="/org/users" element={<ProtectedRoute><OrgUsersPage /></ProtectedRoute>} />
       <Route path="/org/roles" element={<ProtectedRoute><OrgRolesPage /></ProtectedRoute>} />
+      <Route path="/org/templates" element={<ProtectedRoute><TemplatesPage /></ProtectedRoute>} />
       <Route path="/admin/orgs" element={<AdminRoute><AdminOrganizationsPage /></AdminRoute>} />
       <Route path="/admin/orgs/:id" element={<AdminRoute><AdminOrgDetailPage /></AdminRoute>} />
       <Route path="/admin/logs" element={<AdminRoute><AdminLogsPage /></AdminRoute>} />
+      <Route path="/admin/settings" element={<AdminRoute><AdminSettingsPage /></AdminRoute>} />
       <Route path="/attempt/:token" element={<AttemptPage />} />
     </Routes>
   );

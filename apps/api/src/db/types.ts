@@ -46,6 +46,12 @@ export interface SchemaMigrationsPublicTable {
   run_at: Timestamp;
 }
 
+export interface PlatformSettingsTable {
+  key: string;
+  value: unknown;
+  updated_at: Timestamp;
+}
+
 export interface UsersTable {
   id: string;
   org_id: string;
@@ -79,6 +85,16 @@ export interface TestsTable {
   updated_at: Timestamp;
 }
 
+export interface BatchesTable {
+  id: string;
+  org_id: string;
+  name: string;
+  description: string | null;
+  created_by: string;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
 export interface TestQuestionsTable {
   id: string;
   org_id: string | null;
@@ -92,7 +108,8 @@ export interface TestQuestionsTable {
 export interface CandidatesTable {
   id: string;
   org_id: string;
-  test_id: string;
+  test_id: string | null;
+  batch_id: string | null;
   name: string;
   email: string;
   phone: string | null;
@@ -156,20 +173,48 @@ export interface SchemaMigrationsTenantTable {
   run_at: Timestamp;
 }
 
+export interface EmailTemplatesTable {
+  id: string;
+  org_id: string;
+  name: string;
+  type: string;
+  subject: string;
+  body: string;
+  is_default: boolean;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+export interface NotificationsTable {
+  id: string;
+  org_id: string;
+  type: string;
+  title: string;
+  message: string;
+  is_read: boolean;
+  data: any; // JSONB
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
 export interface Database {
   organizations: OrganizationsTable;
   platform_admins: PlatformAdminsTable;
   audit_logs_platform: AuditLogsPlatformTable;
   global_question_pool: GlobalQuestionPoolTable;
   schema_migrations_public: SchemaMigrationsPublicTable;
+  platform_settings: PlatformSettingsTable;
   users: UsersTable;
   custom_roles: CustomRolesTable;
   tests: TestsTable;
   test_questions: TestQuestionsTable;
+  batches: BatchesTable;
   candidates: CandidatesTable;
   candidate_attempts: CandidateAttemptsTable;
   responses: ResponsesTable;
   credit_usage: CreditUsageTable;
   audit_logs: AuditLogsTable;
   schema_migrations_tenant: SchemaMigrationsTenantTable;
+  email_templates: EmailTemplatesTable;
+  notifications: NotificationsTable;
 }

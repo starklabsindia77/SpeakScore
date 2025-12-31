@@ -30,15 +30,24 @@ export const createTestSchema = z.object({
   expiresAt: z.string().datetime().nullable().optional()
 });
 
+export const createBatchSchema = z.object({
+  name: z.string().min(2),
+  description: z.string().optional()
+});
+
 export const createAttemptSchema = z.object({
   candidateName: z.string().min(2),
-  candidateEmail: z.string().email()
+  candidateEmail: z.string().email(),
+  batchId: z.string().uuid().optional(),
+  testId: z.string().uuid().optional()
 });
 
 export const bulkInviteSchema = z.object({
+  batchId: z.string().uuid().optional(),
   candidates: z.array(z.object({
     name: z.string().min(2),
-    email: z.string().email()
+    email: z.string().email(),
+    cvData: z.any().optional() // For parsed CV data
   }))
 });
 
@@ -49,6 +58,32 @@ export const candidateResponseSchema = z.object({
 
 export const submitAttemptSchema = z.object({
   submittedAt: z.string().datetime()
+});
+
+export const aiConfigSchema = z.object({
+  provider: z.enum(['gemini', 'openai', 'claude']),
+  apiKeys: z.array(z.string()).min(1),
+  model: z.string().optional(),
+  projectId: z.string().optional(), // For Gemini
+  region: z.string().optional() // For AWS Claude or similar if needed
+});
+
+export const createEmailTemplateSchema = z.object({
+  name: z.string().min(1),
+  type: z.enum(['INVITE', 'REMINDER', 'RESULT', 'CUSTOM']),
+  subject: z.string().min(1),
+  body: z.string().min(1),
+  isDefault: z.boolean().default(false)
+});
+
+export const notificationSchema = z.object({
+  id: z.string(),
+  type: z.enum(['INFO', 'SUCCESS', 'WARNING', 'ERROR']),
+  title: z.string(),
+  message: z.string(),
+  isRead: z.boolean(),
+  createdAt: z.string().or(z.date()),
+  data: z.any().optional()
 });
 
 export type Permission =
@@ -69,6 +104,11 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateOrgInput = z.infer<typeof createOrgSchema>;
 export type CreateUserInviteInput = z.infer<typeof createUserInviteSchema>;
 export type CreateTestInput = z.infer<typeof createTestSchema>;
+export type CreateBatchInput = z.infer<typeof createBatchSchema>;
 export type CreateAttemptInput = z.infer<typeof createAttemptSchema>;
 export type CandidateResponseInput = z.infer<typeof candidateResponseSchema>;
 export type SubmitAttemptInput = z.infer<typeof submitAttemptSchema>;
+export type BulkInviteInput = z.infer<typeof bulkInviteSchema>;
+export type AiConfigInput = z.infer<typeof aiConfigSchema>;
+export type CreateEmailTemplateInput = z.infer<typeof createEmailTemplateSchema>;
+export type Notification = z.infer<typeof notificationSchema>;
