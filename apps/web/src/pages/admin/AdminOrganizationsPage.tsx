@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { MoreVertical, Eye, CreditCard, Ban, Power } from 'lucide-react';
+import { Dropdown, DropdownItem } from '../../components/common/Dropdown';
 import { apiFetch } from '../../api';
 import { AdminLayout } from '../../components/common/AdminLayout';
 import { Badge } from '../../components/common/Badge';
@@ -102,40 +104,84 @@ export function AdminOrganizationsPage() {
                 </div>
             </div>
             {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-            <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-                <div className="grid grid-cols-7 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
-                    <span>Name</span>
-                    <span>ID</span>
-                    <span>Schema</span>
-                    <span className="text-right">Credits</span>
-                    <span>Status</span>
-                    <span>Created</span>
-                    <span className="text-right">Actions</span>
-                </div>
-                <div className="divide-y divide-slate-100">
-                    {loading && <p className="px-4 py-3 text-sm text-slate-600">Loading organizations...</p>}
-                    {!loading &&
-                        orgs.map((org) => (
-                            <div key={org.id} className="grid grid-cols-7 items-center px-4 py-3 text-sm">
-                                <span className="font-semibold text-slate-900">{org.name}</span>
-                                <span className="truncate text-xs text-slate-500">{org.id}</span>
-                                <span className="text-xs text-slate-600">{org.schemaName}</span>
-                                <span className="text-right font-semibold">{org.creditsBalance}</span>
-                                <OrgStatusBadge status={org.status} />
-                                <span className="text-xs text-slate-500">{formatDate(org.createdAt)}</span>
-                                <div className="flex justify-end gap-2 text-xs font-semibold">
-                                    <Link to={`/admin/orgs/${org.id}`} className="text-blue-700">View</Link>
-                                    <button onClick={() => toggleStatus(org)} className="text-slate-700 underline">
-                                        {org.status === 'DISABLED' ? 'Enable' : 'Disable'}
-                                    </button>
-                                    <button onClick={() => setSelectedOrg(org)} className="text-blue-700 underline">
-                                        Allocate credits
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                    {!loading && orgs.length === 0 && <p className="px-4 py-3 text-sm text-slate-600">No organizations yet.</p>}
-                </div>
+
+            <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+                <table className="min-w-full divide-y divide-slate-200">
+                    <thead className="bg-slate-50">
+                        <tr>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Name</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Schema</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Credits</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Status</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Created</th>
+                            <th scope="col" className="relative px-6 py-3"><span className="sr-only">Actions</span></th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 bg-white">
+                        {loading && (
+                            <tr>
+                                <td colSpan={6} className="px-6 py-8 text-center text-sm text-slate-500">
+                                    Loading organizations...
+                                </td>
+                            </tr>
+                        )}
+                        {!loading && orgs.length === 0 && (
+                            <tr>
+                                <td colSpan={6} className="px-6 py-8 text-center text-sm text-slate-500">
+                                    No organizations found.
+                                </td>
+                            </tr>
+                        )}
+                        {!loading &&
+                            orgs.map((org) => (
+                                <tr key={org.id} className="group transition-colors hover:bg-slate-50/50">
+                                    <td className="whitespace-nowrap px-6 py-4">
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-medium text-slate-900">{org.name}</span>
+                                            <span className="text-xs text-slate-400 max-w-[140px] truncate" title={org.id}>ID: {org.id}</span>
+                                        </div>
+                                    </td>
+                                    <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-600">
+                                        <code className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700">{org.schemaName}</code>
+                                    </td>
+                                    <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-slate-700">
+                                        {org.creditsBalance.toLocaleString()}
+                                    </td>
+                                    <td className="whitespace-nowrap px-6 py-4">
+                                        <OrgStatusBadge status={org.status} />
+                                    </td>
+                                    <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-500">
+                                        {formatDate(org.createdAt)}
+                                    </td>
+                                    <td className="whitespace-nowrap px-6 py-4 text-right text-sm font-medium">
+                                        <Dropdown
+                                            trigger={
+                                                <button className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+                                                    <MoreVertical size={16} />
+                                                </button>
+                                            }
+                                        >
+                                            <div className="py-1">
+                                                <Link to={`/admin/orgs/${org.id}`} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 rounded-md">
+                                                    <Eye size={16} /> View Details
+                                                </Link>
+                                                <DropdownItem onClick={() => setSelectedOrg(org)} icon={CreditCard}>
+                                                    Allocate Credits
+                                                </DropdownItem>
+                                                <DropdownItem
+                                                    onClick={() => toggleStatus(org)}
+                                                    icon={org.status === 'DISABLED' ? Power : Ban}
+                                                    variant={org.status === 'DISABLED' ? 'default' : 'danger'}
+                                                >
+                                                    {org.status === 'DISABLED' ? 'Enable Org' : 'Disable Org'}
+                                                </DropdownItem>
+                                            </div>
+                                        </Dropdown>
+                                    </td>
+                                </tr>
+                            ))}
+                    </tbody>
+                </table>
             </div>
 
             {selectedOrg && (

@@ -13,7 +13,13 @@ const envSchema = z.object({
   S3_ACCESS_KEY: z.string().optional(),
   S3_SECRET_KEY: z.string().optional(),
   REDIS_URL: z.string().default('redis://localhost:6379'),
-  LOG_LEVEL: z.string().default('info')
+  LOG_LEVEL: z.string().default('info'),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.string().optional(),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z.string().default('noreply@speakscore.com'),
+  APP_URL: z.string().default('http://localhost:3000')
 });
 
 export const env = envSchema.parse(process.env);

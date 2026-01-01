@@ -27,7 +27,7 @@ export function schemaFromOrgId(orgId: string) {
 export async function resolveTenant(orgId: string) {
   const org = await db
     .selectFrom('organizations')
-    .select(['id', 'name', 'schema_name', 'status', 'credits_balance', 'created_at', 'updated_at'])
+    .select(['id', 'name', 'schema_name', 'status', 'credits_balance', 'feature_costs', 'created_at', 'updated_at'])
     .where('id', '=', orgId)
     .executeTakeFirst();
   if (!org) {
@@ -74,6 +74,7 @@ export async function provisionOrganization(opts: {
   schemaName?: string;
   adminEmail?: string;
   adminPassword?: string;
+  featureCosts?: any;
 }) {
   const orgId = opts.id ?? randomUUID();
   const schemaName = normalizeSchemaName(opts.schemaName ?? schemaFromOrgId(orgId));
@@ -89,10 +90,11 @@ export async function provisionOrganization(opts: {
         schema_name: schemaName,
         status: 'PROVISIONING',
         credits_balance: credits,
+        feature_costs: opts.featureCosts ? JSON.stringify(opts.featureCosts) : null,
         created_at: new Date(),
         updated_at: new Date()
       })
-      .onConflict((oc) => oc.column('id').doUpdateSet({ name: opts.name, schema_name: schemaName, credits_balance: credits, updated_at: new Date() }))
+      .onConflict((oc) => oc.column('id').doUpdateSet({ name: opts.name, schema_name: schemaName, credits_balance: credits, feature_costs: opts.featureCosts ? JSON.stringify(opts.featureCosts) : null, updated_at: new Date() }))
       .execute();
   });
 

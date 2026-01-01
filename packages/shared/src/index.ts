@@ -6,6 +6,22 @@ export const loginSchema = z.object({
   orgId: z.string().uuid().optional()
 });
 
+export const featureCostsSchema = z.object({
+  ATTEMPT_SUBMISSION: z.number().int().min(0).default(1)
+});
+
+export const createGlobalQuestionSchema = z.object({
+  type: z.enum(['TEXT', 'AUDIO', 'MCQ']),
+  prompt: z.string().min(5),
+  metaJson: z.any().optional(),
+  isActive: z.boolean().default(true)
+});
+
+export const createPlatformAdminSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(12)
+});
+
 export const createOrgSchema = z.object({
   name: z.string().min(2),
   creditsBalance: z.number().int().min(0).default(0),
@@ -14,7 +30,8 @@ export const createOrgSchema = z.object({
     .regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/, 'schema must be alphanumeric/underscore and start with a letter')
     .optional(),
   adminEmail: z.string().email().optional(),
-  adminPassword: z.string().min(8).optional()
+  adminPassword: z.string().min(8).optional(),
+  featureCosts: featureCostsSchema.partial().optional()
 });
 
 export const createUserInviteSchema = z.object({
@@ -76,6 +93,20 @@ export const createEmailTemplateSchema = z.object({
   isDefault: z.boolean().default(false)
 });
 
+export const forgotPasswordSchema = z.object({
+  email: z.string().email()
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1),
+  password: z.string().min(8)
+});
+
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(8)
+});
+
 export const notificationSchema = z.object({
   id: z.string(),
   type: z.enum(['INFO', 'SUCCESS', 'WARNING', 'ERROR']),
@@ -112,3 +143,8 @@ export type BulkInviteInput = z.infer<typeof bulkInviteSchema>;
 export type AiConfigInput = z.infer<typeof aiConfigSchema>;
 export type CreateEmailTemplateInput = z.infer<typeof createEmailTemplateSchema>;
 export type Notification = z.infer<typeof notificationSchema>;
+export type FeatureCosts = z.infer<typeof featureCostsSchema>;
+
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;

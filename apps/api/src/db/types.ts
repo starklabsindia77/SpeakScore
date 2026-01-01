@@ -8,6 +8,7 @@ export interface OrganizationsTable {
   schema_name: string;
   status: 'ACTIVE' | 'DISABLED' | 'PROVISIONING';
   credits_balance: number;
+  feature_costs: unknown | null;
   created_at: Timestamp;
   updated_at: Timestamp;
 }
@@ -16,8 +17,9 @@ export interface PlatformAdminsTable {
   id: string;
   email: string;
   password_hash: string;
-  role: 'SUPER_ADMIN';
+  token_version: number;
   created_at: Timestamp;
+  updated_at: Timestamp;
 }
 
 export interface GlobalQuestionPoolTable {
@@ -60,6 +62,7 @@ export interface UsersTable {
   role: string;
   title: string | null;
   custom_role_id: string | null;
+  token_version: number;
   created_at: Timestamp;
   updated_at: Timestamp;
 }
@@ -150,6 +153,19 @@ export interface ResponsesTable {
   updated_at: Timestamp;
 }
 
+export interface CreditPurchasesTable {
+  id: string;
+  razorpay_order_id: string;
+  razorpay_payment_id: string | null;
+  amount: number;
+  credits: number;
+  currency: string;
+  status: string;
+  meta_json: unknown | null;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
 export interface CreditUsageTable {
   id: string;
   org_id: string;
@@ -197,6 +213,17 @@ export interface NotificationsTable {
   updated_at: Timestamp;
 }
 
+export interface PasswordResetTokensTable {
+  id: Generated<string>;
+  user_type: 'PLATFORM_ADMIN' | 'ORG_USER';
+  user_id: string;
+  org_id: string | null;
+  token_hash: string;
+  expires_at: Timestamp;
+  used_at: Timestamp | null;
+  created_at: Generated<Timestamp>;
+}
+
 export interface Database {
   organizations: OrganizationsTable;
   platform_admins: PlatformAdminsTable;
@@ -213,8 +240,10 @@ export interface Database {
   candidate_attempts: CandidateAttemptsTable;
   responses: ResponsesTable;
   credit_usage: CreditUsageTable;
+  credit_purchases: CreditPurchasesTable;
   audit_logs: AuditLogsTable;
   schema_migrations_tenant: SchemaMigrationsTenantTable;
   email_templates: EmailTemplatesTable;
   notifications: NotificationsTable;
+  password_reset_tokens: PasswordResetTokensTable;
 }

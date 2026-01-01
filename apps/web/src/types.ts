@@ -6,6 +6,7 @@ export type AdminOrg = {
     creditsBalance: number;
     createdAt: string;
     updatedAt?: string;
+    featureCosts?: { ATTEMPT_SUBMISSION?: number };
 };
 
 export type PlatformLog = {

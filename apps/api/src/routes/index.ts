@@ -17,6 +17,4 @@ export async function registerRoutes(app: FastifyInstance) {
   await app.register(batchRoutes, { prefix: '/api' });
   await app.register(templateRoutes, { prefix: '/api' });
   await app.register(notificationRoutes, { prefix: '/api' });
-  await app.register(adminRoutes, { prefix: '/api/admin' });
-  await app.register(publicRoutes, { prefix: '/public' });
 }

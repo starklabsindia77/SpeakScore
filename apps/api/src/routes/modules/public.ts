@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { candidateResponseSchema, submitAttemptSchema } from '@speakscore/shared';
 import { createHash, randomUUID } from 'crypto';
 import { sql } from 'kysely';
-import { withTenantTransaction } from '../../db';
+import { db, withTenantTransaction } from '../../db';
 import { resolveTenant, TenantAccessError } from '../../services/tenancy';
 import { createSignedUploadUrl } from '../../services/storage';
 import { simpleScoreFromTranscript } from '../../services/scoring';
@@ -184,18 +184,34 @@ export async function publicRoutes(app: FastifyInstance) {
 
       const existing = await tenantDb.selectFrom('credit_usage').select('id').where('attempt_id', '=', attempt.attempt_id).executeTakeFirst();
       if (!existing) {
-        await tenantDb
-          .insertInto('credit_usage')
-          .values({
-            id: randomUUID(),
-            org_id: org.id,
-            attempt_id: attempt.attempt_id,
-            candidate_id: attempt.candidate_id,
-            credits_used: 1,
-            used_at: new Date()
-          })
-          .execute();
-        await sql`update public.organizations set credits_balance = credits_balance - 1, updated_at = now() where id = ${org.id}`.execute(tenantDb);
+        // Calculate cost
+        let cost = 1; // Default fallback
+        const orgCosts = (org.feature_costs as any) || {};
+        if (typeof orgCosts.ATTEMPT_SUBMISSION === 'number') {
+          cost = orgCosts.ATTEMPT_SUBMISSION;
+        } else {
+          // Fetch global
+          const globalSetting = await db.selectFrom('platform_settings').select('value').where('key', '=', 'global_feature_costs').executeTakeFirst();
+          const globalCosts = (globalSetting?.value as any) || {};
+          if (typeof globalCosts.ATTEMPT_SUBMISSION === 'number') {
+            cost = globalCosts.ATTEMPT_SUBMISSION;
+          }
+        }
+
+        if (cost > 0) {
+          await tenantDb
+            .insertInto('credit_usage')
+            .values({
+              id: randomUUID(),
+              org_id: org.id,
+              attempt_id: attempt.attempt_id,
+              candidate_id: attempt.candidate_id,
+              credits_used: cost,
+              used_at: new Date()
+            })
+            .execute();
+          await sql`update public.organizations set credits_balance = credits_balance - ${cost}, updated_at = now() where id = ${org.id}`.execute(tenantDb);
+        }
       }
 
       await tenantDb
