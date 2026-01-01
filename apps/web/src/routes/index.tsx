@@ -50,6 +50,7 @@ export function AppRoutes() {
             <Route path="/admin/logs" element={<AdminRoute><AdminLogsPage /></AdminRoute>} />
             <Route path="/admin/questions" element={<AdminRoute><AdminQuestionsPage /></AdminRoute>} />
             <Route path="/admin/admins" element={<AdminRoute><AdminPlatformAdminsPage /></AdminRoute>} />
+            <Route path="/admin/billing" element={<AdminRoute><BillingPage /></AdminRoute>} />
             <Route path="/admin/settings" element={<AdminRoute><AdminSettingsPage /></AdminRoute>} />
             <Route path="/settings/change-password" element={<ProtectedRoute><ChangePasswordPage /></ProtectedRoute>} />
             <Route path="/attempt/:token" element={<AttemptPage />} />

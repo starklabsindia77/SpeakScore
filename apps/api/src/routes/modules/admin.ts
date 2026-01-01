@@ -71,6 +71,74 @@ export async function adminRoutes(app: FastifyInstance) {
     return result;
   });
 
+  app.get('/billing/stats', { preHandler: [app.authorize(['SUPER_ADMIN']), adminRateLimit] }, async (request) => {
+    const orgs = await db.selectFrom('organizations')
+      .select(['id', 'schema_name', 'name'])
+      .where('status', '=', 'ACTIVE')
+      .execute();
+
+    let totalRevenue = 0;
+    let totalCreditsSold = 0;
+    const orgBreakdown: any[] = [];
+
+    await Promise.all(orgs.map(async (org) => {
+      try {
+        await withTenantTransaction(org.schema_name, async (trx) => {
+          const stats = await trx.selectFrom('credit_purchases')
+            .select(({ fn }) => [
+              fn.sum<number>('amount').as('revenue'),
+              fn.sum<number>('credits').as('credits')
+            ])
+            .where('status', '=', 'SUCCESS')
+            .executeTakeFirst();
+
+          const rev = Number(stats?.revenue || 0);
+          const cred = Number(stats?.credits || 0);
+          totalRevenue += rev;
+          totalCreditsSold += cred;
+          orgBreakdown.push({ orgId: org.id, name: org.name, revenue: rev, credits: cred });
+        });
+      } catch (err) {
+        request.log.warn({ orgId: org.id, err }, 'Failed to fetch billing stats for org');
+      }
+    }));
+
+    return { totalRevenue, totalCreditsSold, orgBreakdown };
+  });
+
+  app.get('/billing/transactions', { preHandler: [app.authorize(['SUPER_ADMIN']), adminRateLimit] }, async (request) => {
+    const orgs = await db.selectFrom('organizations')
+      .select(['id', 'schema_name', 'name'])
+      .where('status', '=', 'ACTIVE')
+      .execute();
+
+    const allTransactions: any[] = [];
+
+    await Promise.all(orgs.map(async (org) => {
+      try {
+        await withTenantTransaction(org.schema_name, async (trx) => {
+          const txs = await trx.selectFrom('credit_purchases')
+            .select(['id', 'amount', 'credits', 'currency', 'status', 'created_at'])
+            .orderBy('created_at', 'desc')
+            .limit(50)
+            .execute();
+
+          for (const tx of txs) {
+            allTransactions.push({
+              ...tx,
+              orgId: org.id,
+              orgName: org.name
+            });
+          }
+        });
+      } catch (err) {
+        request.log.warn({ orgId: org.id, err }, 'Failed to fetch transactions for org');
+      }
+    }));
+
+    return allTransactions.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 100);
+  });
+
   app.get('/health', { preHandler: [app.authorize(['SUPER_ADMIN']), adminRateLimit] }, async () => {
     const start = Date.now();
     let dbStatus = 'disconnected';

@@ -8,6 +8,7 @@ import { adminRoutes } from './modules/admin';
 import { batchRoutes } from './modules/batches';
 import { templateRoutes } from './modules/templates';
 import { notificationRoutes } from './modules/notifications';
+import billingRoutes from './modules/billing';
 
 export async function registerRoutes(app: FastifyInstance) {
   await app.register(authRoutes, { prefix: '/api/auth' });
@@ -17,4 +18,7 @@ export async function registerRoutes(app: FastifyInstance) {
   await app.register(batchRoutes, { prefix: '/api' });
   await app.register(templateRoutes, { prefix: '/api' });
   await app.register(notificationRoutes, { prefix: '/api' });
+  await app.register(adminRoutes, { prefix: '/api/admin' });
+  await app.register(billingRoutes, { prefix: '/api/billing' });
+  await app.register(publicRoutes, { prefix: '/api/public' });
 }
