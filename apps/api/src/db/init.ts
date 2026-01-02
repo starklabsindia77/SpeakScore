@@ -35,8 +35,9 @@ async function seedPlatformAdmin() {
                 id: randomUUID(),
                 email: adminEmail,
                 password_hash: passwordHash,
-                role: 'SUPER_ADMIN',
-                created_at: new Date()
+                token_version: 1,
+                created_at: new Date(),
+                updated_at: new Date()
             })
             .execute();
     } else {

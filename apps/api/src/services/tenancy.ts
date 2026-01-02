@@ -120,6 +120,7 @@ export async function provisionOrganization(opts: {
           password_hash: passwordHash,
           role: 'ORG_ADMIN',
           custom_role_id: role?.id,
+          token_version: 1,
           created_at: new Date(),
           updated_at: new Date()
         })

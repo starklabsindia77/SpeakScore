@@ -59,6 +59,7 @@ export async function orgRoutes(app: FastifyInstance) {
           role: data.role,
           title: data.title,
           custom_role_id: data.customRoleId,
+          token_version: 1,
           created_at: new Date(),
           updated_at: new Date()
         })

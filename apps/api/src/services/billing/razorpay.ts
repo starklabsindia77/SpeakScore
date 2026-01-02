@@ -4,6 +4,14 @@ import { db } from '../../db';
 export class RazorpayService {
     private static instance: Razorpay | null = null;
 
+    static async getKeyId() {
+        const setting = await db.selectFrom('platform_settings')
+            .select('value')
+            .where('key', '=', 'billing_config')
+            .executeTakeFirst();
+        return (setting?.value as any)?.razorpay?.keyId;
+    }
+
     private static async getInstance() {
         if (this.instance) return this.instance;
 

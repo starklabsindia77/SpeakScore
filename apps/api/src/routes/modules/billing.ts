@@ -24,7 +24,7 @@ export default async function billingRoutes(app: FastifyInstance) {
                 orderId: order.id,
                 amount: order.amount,
                 currency: order.currency,
-                keyId: (await RazorpayService['getInstance']())?.key_id
+                keyId: await RazorpayService.getKeyId()
             };
         } catch (err: any) {
             request.log.error(err, 'Razorpay Order Creation Failed');

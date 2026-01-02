@@ -13,8 +13,9 @@ async function seedPublicData() {
       id: randomUUID(),
       email: 'superadmin@speakscore.test',
       password_hash: adminPassword,
-      role: 'SUPER_ADMIN',
-      created_at: new Date()
+      token_version: 1,
+      created_at: new Date(),
+      updated_at: new Date()
     })
     .onConflict((oc) => oc.column('email').doNothing())
     .execute();

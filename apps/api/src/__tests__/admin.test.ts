@@ -31,8 +31,9 @@ describeIfDb('admin panel RBAC and actions', () => {
         id: superAdminId,
         email: superEmail,
         password_hash: adminPassword,
-        role: 'SUPER_ADMIN',
-        created_at: new Date()
+        token_version: 1,
+        created_at: new Date(),
+        updated_at: new Date()
       })
       .onConflict((oc) => oc.column('email').doNothing())
       .execute();
@@ -52,6 +53,7 @@ describeIfDb('admin panel RBAC and actions', () => {
           email: tenantUserEmail,
           password_hash: tenantPasswordHash,
           role: 'ORG_ADMIN',
+          token_version: 1,
           created_at: new Date(),
           updated_at: new Date()
         })

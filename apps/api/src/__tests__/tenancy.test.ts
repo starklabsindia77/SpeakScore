@@ -39,7 +39,7 @@ describeIfDb('schema-per-tenant isolation', () => {
 
       await tenantDb
         .insertInto('users')
-        .values({ id: randomUUID(), org_id: orgA.id, email: 'a@example.com', password_hash: 'x', role: 'ORG_ADMIN', created_at: new Date(), updated_at: new Date() })
+        .values({ id: randomUUID(), org_id: orgA.id, email: 'a@example.com', password_hash: 'x', role: 'ORG_ADMIN', token_version: 1, created_at: new Date(), updated_at: new Date() })
         .execute();
       candidateIds.a = randomUUID();
       await tenantDb
@@ -81,7 +81,7 @@ describeIfDb('schema-per-tenant isolation', () => {
 
       await tenantDb
         .insertInto('users')
-        .values({ id: randomUUID(), org_id: orgB.id, email: 'b@example.com', password_hash: 'x', role: 'ORG_ADMIN', created_at: new Date(), updated_at: new Date() })
+        .values({ id: randomUUID(), org_id: orgB.id, email: 'b@example.com', password_hash: 'x', role: 'ORG_ADMIN', token_version: 1, created_at: new Date(), updated_at: new Date() })
         .execute();
       candidateIds.b = randomUUID();
       await tenantDb
