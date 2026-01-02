@@ -151,15 +151,29 @@ export async function adminRoutes(app: FastifyInstance) {
       dbStatus = 'error';
     }
 
+    const { checkS3Health } = await import('../../services/storage');
+    const s3Health = await checkS3Health();
+
     return {
-      status: dbStatus === 'connected' ? 'healthy' : 'degraded',
+      status: (dbStatus === 'connected' && s3Health.status === 'connected') ? 'healthy' : 'degraded',
       uptime: process.uptime(),
       timestamp: new Date(),
       services: {
         database: { status: dbStatus, latency: dbLatency },
+        storage: s3Health,
         api: { status: 'running', version: '1.0.0' }
       }
     };
+  });
+
+  app.get('/system/errors', { preHandler: [app.authorize(['SUPER_ADMIN']), adminRateLimit] }, async (request) => {
+    const errors = await db.selectFrom('audit_logs_platform')
+      .selectAll()
+      .where('level', 'in', ['WARN', 'ERROR'])
+      .orderBy('created_at', 'desc')
+      .limit(20)
+      .execute();
+    return errors;
   });
 
   app.get('/orgs', { preHandler: [app.authorize(['SUPER_ADMIN']), adminRateLimit] }, async (request) => {
@@ -665,7 +679,13 @@ export async function adminRoutes(app: FastifyInstance) {
     if (!user) return reply.notFound('User not found in this organization');
 
     // Generate token for this user
-    const token = app.jwt.sign({ userId: user.id, orgId, role: user.role as any });
+    const token = app.jwt.sign({
+      userId: user.id,
+      orgId,
+      role: user.role as any,
+      v: user.token_version ?? 1,
+      impersonatorId: request.user?.userId // Track who is impersonating
+    });
 
     // Log this action
     await logPlatformEvent({
@@ -673,6 +693,7 @@ export async function adminRoutes(app: FastifyInstance) {
       source: 'AUTH',
       message: 'Super Admin impersonated user',
       actorAdminId: request.user?.userId ?? null,
+      impersonatorAdminId: request.user?.userId ?? null,
       orgId,
       meta: { targetUserId: userId, targetUserEmail: user.email }
     });
@@ -769,4 +790,51 @@ export async function adminRoutes(app: FastifyInstance) {
 
     return { success: true, newVersion: updateResult.token_version };
   });
+
+  app.get('/security/users', { preHandler: [app.authorize(['SUPER_ADMIN']), adminRateLimit] }, async (request) => {
+    const queryParams = (request.query as any) ?? {};
+    const email = queryParams.email;
+    const orgs = await db.selectFrom('organizations').select(['id', 'name', 'schema_name']).where('status', '=', 'ACTIVE').execute();
+
+    const results: any[] = [];
+    await Promise.all(orgs.map(async (org) => {
+      try {
+        await withTenantTransaction(org.schema_name, async (trx) => {
+          let query = trx.selectFrom('users').select(['id', 'email', 'role', 'token_version', 'created_at']);
+          if (email) {
+            query = query.where('email', 'like', `%${email}%`);
+          }
+          const users = await query.limit(50).execute();
+          for (const u of users) {
+            results.push({ ...u, orgId: org.id, orgName: org.name });
+          }
+        });
+      } catch (e) {
+        request.log.warn({ orgId: org.id, e }, 'Failed to search users in org');
+      }
+    }));
+    return results.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 100);
+  });
+
+  app.post('/security/users/:orgId/:userId/revoke', { preHandler: [app.authorize(['SUPER_ADMIN']), adminRateLimit] }, async (request, reply) => {
+    const { orgId, userId } = request.params as any;
+    const org = await db.selectFrom('organizations').select('schema_name').where('id', '=', orgId).executeTakeFirst();
+    if (!org) return reply.notFound('Organization not found');
+
+    await withTenantTransaction(org.schema_name, async (trx) => {
+      await trx.updateTable('users').set({ token_version: sql`token_version + 1` }).where('id', '=', userId).execute();
+    });
+
+    await logPlatformEvent({
+      level: 'WARN',
+      source: 'AUTH',
+      message: 'Global user session revoked by Super Admin',
+      actorAdminId: request.user?.userId ?? null,
+      orgId,
+      meta: { targetUserId: userId }
+    });
+
+    return { success: true };
+  });
 }
+

@@ -19,7 +19,8 @@ import { AdminOrganizationsPage } from '../pages/admin/AdminOrganizationsPage';
 import { AdminPlatformAdminsPage } from '../pages/admin/AdminPlatformAdminsPage';
 import { AdminQuestionsPage } from '../pages/admin/AdminQuestionsPage';
 import { AdminSettingsPage } from '../pages/admin/AdminSettingsPage';
-import { BillingPage } from '../pages/admin/BillingPage'; // Added import for BillingPage
+import { AdminSecurityPage } from '../pages/admin/AdminSecurityPage';
+import { BillingPage } from '../pages/admin/BillingPage';
 import { OrgRolesPage } from '../pages/org/OrgRolesPage';
 import { OrgUsersPage } from '../pages/org/OrgUsersPage';
 import { TemplatesPage } from '../pages/org/TemplatesPage';
@@ -51,6 +52,7 @@ export function AppRoutes() {
             <Route path="/admin/questions" element={<AdminRoute><AdminQuestionsPage /></AdminRoute>} />
             <Route path="/admin/admins" element={<AdminRoute><AdminPlatformAdminsPage /></AdminRoute>} />
             <Route path="/admin/billing" element={<AdminRoute><BillingPage /></AdminRoute>} />
+            <Route path="/admin/security" element={<AdminRoute><AdminSecurityPage /></AdminRoute>} />
             <Route path="/admin/settings" element={<AdminRoute><AdminSettingsPage /></AdminRoute>} />
             <Route path="/settings/change-password" element={<ProtectedRoute><ChangePasswordPage /></ProtectedRoute>} />
             <Route path="/attempt/:token" element={<AttemptPage />} />

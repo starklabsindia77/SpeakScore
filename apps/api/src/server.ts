@@ -6,9 +6,6 @@ import jwtPlugin from './auth/jwt';
 import multiTenantPlugin from './plugins/multiTenant';
 import rbacPlugin from './plugins/rbac';
 import { logger } from './logger';
-import { publicRoutes } from './routes/modules/public';
-import billingRoutes from './routes/modules/billing';
-import { adminRoutes } from './routes/modules/admin';
 import { registerRoutes } from './routes';
 
 export async function buildServer() {
@@ -62,9 +59,6 @@ export async function buildServer() {
   await app.register(multiTenantPlugin);
 
   // Routes (after auth plugins are registered)
-  await app.register(adminRoutes, { prefix: '/api/admin' });
-  await app.register(billingRoutes, { prefix: '/api/billing' });
-  await app.register(publicRoutes, { prefix: '/api/public' });
   await registerRoutes(app);
   return app;
 }

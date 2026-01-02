@@ -8,6 +8,7 @@ export interface AuthPayload {
   orgId?: string;
   role: 'SUPER_ADMIN' | 'ORG_ADMIN' | 'RECRUITER';
   v?: number;
+  impersonatorId?: string;
 }
 
 export default fp(async (app: FastifyInstance) => {

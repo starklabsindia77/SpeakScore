@@ -40,6 +40,7 @@ export interface AuditLogsPlatformTable {
   action: string;
   org_id: string | null;
   meta_json: unknown | null;
+  impersonator_admin_id: string | null;
   created_at: Timestamp;
 }
 
@@ -181,6 +182,7 @@ export interface AuditLogsTable {
   actor_user_id: string | null;
   action: string;
   meta_json: unknown | null;
+  impersonator_admin_id: string | null;
   created_at: Timestamp;
 }
 

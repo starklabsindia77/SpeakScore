@@ -10,7 +10,7 @@ import { templateRoutes } from './modules/templates';
 import { notificationRoutes } from './modules/notifications';
 import billingRoutes from './modules/billing';
 
-export async function registerRoutes(app: FastifyInstance) {
+export async function registerRoutes(app: any) {
   await app.register(authRoutes, { prefix: '/api/auth' });
   await app.register(orgRoutes, { prefix: '/api' });
   await app.register(testRoutes, { prefix: '/api' });

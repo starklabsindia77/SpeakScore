@@ -1,6 +1,5 @@
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, FileText, Settings, LogOut, HelpCircle, ShieldAlert, Activity, CreditCard, BarChart3 } from 'lucide-react';
+import { Building2, FileText, Settings, LogOut, HelpCircle, ShieldAlert, Activity, CreditCard, BarChart3, ShieldCheck, Lock, Shield } from 'lucide-react';
 import { useAuth } from '../../auth';
 import { Badge } from './Badge';
 import { Sidebar } from './Sidebar';
@@ -9,6 +8,7 @@ const adminNavItems = [
     { label: 'Dashboard', to: '/admin', icon: Activity },
     { label: 'Analytics', to: '/admin/analytics', icon: BarChart3 },
     { label: 'Billing', to: '/admin/billing', icon: CreditCard },
+    { label: 'Security', to: '/admin/security', icon: Lock },
     { label: 'Organizations', to: '/admin/orgs', icon: Building2 },
     { label: 'Global Questions', to: '/admin/questions', icon: HelpCircle },
     { label: 'Platform Admins', to: '/admin/admins', icon: ShieldAlert },
