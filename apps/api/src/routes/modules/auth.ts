@@ -6,6 +6,7 @@ import { db, withTenantTransaction } from '../../db';
 import { resolveTenant, TenantAccessError } from '../../services/tenancy';
 import { logPlatformEvent } from '../../services/audit';
 import { sendPasswordResetEmail } from '../../services/email';
+import { SSOService } from '../../services/sso';
 
 export async function authRoutes(app: FastifyInstance) {
   app.post('/login', async (request, reply) => {
@@ -222,5 +223,53 @@ export async function authRoutes(app: FastifyInstance) {
     }
 
     return { message: 'Password changed successfully' };
+  });
+
+  app.get('/auth/sso/init', async (request, reply) => {
+    const { orgId } = (request.query as any);
+    if (!orgId) return reply.badRequest('orgId required');
+
+    const state = crypto.randomBytes(16).toString('hex');
+    const authUrl = await SSOService.getAuthorizationUrl(orgId, state);
+
+    if (!authUrl) return reply.badRequest('SSO not configured for this organization');
+
+    // Store state in session or cache if needed for verification
+    return reply.redirect(authUrl);
+  });
+
+  app.get('/auth/sso/callback', async (request, reply) => {
+    const { state, code, orgId } = (request.query as any);
+    // Ideally orgId is inferred from state or relayState
+
+    const userInfo = await SSOService.handleCallback(orgId, request.query, state);
+    if (!userInfo) return reply.unauthorized('SSO Callback failed');
+
+    // Find or create user in the organization schema
+    const org = await db.selectFrom('organizations').select('schema_name').where('id', '=', orgId).executeTakeFirst();
+    if (!org) return reply.unauthorized('Invalid organization');
+
+    const user = await withTenantTransaction(org.schema_name, async (tenantDb) => {
+      let existing = await tenantDb.selectFrom('users').selectAll().where('email', '=', userInfo.email!).executeTakeFirst();
+      if (!existing) {
+        // Just-in-time provisioning of users
+        const [newUser] = await tenantDb.insertInto('users').values({
+          id: crypto.randomUUID(),
+          org_id: orgId,
+          email: userInfo.email!,
+          password_hash: '', // No password for SSO users
+          role: 'RECRUITER',
+          token_version: 1,
+          created_at: new Date(),
+          updated_at: new Date()
+        }).returningAll().execute();
+        existing = newUser;
+      }
+      return existing;
+    });
+
+    const token = app.jwt.sign({ userId: user.id, orgId: orgId, role: user.role as any, v: user.token_version ?? 1 });
+    // Redirect to frontend with token
+    return reply.redirect(`${process.env.FRONTEND_URL}/login/callback?token=${token}`);
   });
 }

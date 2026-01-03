@@ -34,17 +34,35 @@ export default fp(async (app: FastifyInstance) => {
     }
 
     const user = request.user as { orgId?: string; role?: string } | undefined;
-    if (!user) {
-      return reply.unauthorized('Missing auth context');
+    let orgId = user?.orgId;
+
+    // Phase 2: Custom Domain Resolution
+    if (!orgId) {
+      const hostname = request.hostname.split(':')[0]; // Remove port if present
+      const orgByDomain = await db
+        .selectFrom('organizations')
+        .select('id')
+        .where('custom_domain', '=', hostname)
+        .where('status', '=', 'ACTIVE')
+        .executeTakeFirst();
+
+      if (orgByDomain) {
+        orgId = orgByDomain.id;
+      }
     }
 
-    if (!user.orgId) {
+    if (!orgId && !request.url.startsWith('/public')) {
+      // If no org context and not a public route, it might be an attempt link
+      // Attempt links are handled in public.ts or by token, so we let them pass 
+      // if they don't require tenant context here, but most /api routes do.
       return reply.unauthorized('Missing org context');
     }
 
+    if (!orgId) return; // Let public routes pass without tenant context if not found
+
     let org;
     try {
-      org = await resolveTenant(user.orgId);
+      org = await resolveTenant(orgId);
     } catch (err) {
       if (err instanceof TenantAccessError) {
         if (err.code === 'DISABLED') {

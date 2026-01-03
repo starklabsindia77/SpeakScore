@@ -10,6 +10,27 @@ export const featureCostsSchema = z.object({
   ATTEMPT_SUBMISSION: z.number().int().min(0).default(1)
 });
 
+export const brandingSchema = z.object({
+  primaryColor: z.string().regex(/^#[0-9A-F]{6}$/i).optional(),
+  logoUrl: z.string().url().optional(),
+  logoSecondaryUrl: z.string().url().optional(),
+  faviconUrl: z.string().url().optional()
+});
+
+export const ssoConfigSchema = z.object({
+  type: z.enum(['OIDC', 'SAML']),
+  issuerUrl: z.string().url(),
+  clientId: z.string().min(1),
+  clientSecret: z.string().optional(),
+  isActive: z.boolean().default(true)
+});
+
+export const integrationSchema = z.object({
+  provider: z.enum(['greenhouse', 'lever', 'workday']),
+  configJson: z.any(),
+  status: z.enum(['ACTIVE', 'INACTIVE']).default('ACTIVE')
+});
+
 export const createGlobalQuestionSchema = z.object({
   type: z.enum(['TEXT', 'AUDIO', 'MCQ']),
   prompt: z.string().min(5),
@@ -31,7 +52,9 @@ export const createOrgSchema = z.object({
     .optional(),
   adminEmail: z.string().email().optional(),
   adminPassword: z.string().min(8).optional(),
-  featureCosts: featureCostsSchema.partial().optional()
+  featureCosts: featureCostsSchema.partial().optional(),
+  customDomain: z.string().regex(/^[a-z0-9.-]+$/).optional(),
+  branding: brandingSchema.optional()
 });
 
 export const createUserInviteSchema = z.object({

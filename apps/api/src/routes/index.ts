@@ -9,6 +9,8 @@ import { batchRoutes } from './modules/batches';
 import { templateRoutes } from './modules/templates';
 import { notificationRoutes } from './modules/notifications';
 import billingRoutes from './modules/billing';
+import { brandingRoutes } from './modules/branding';
+import { integrationsRoutes } from './modules/integrations';
 
 export async function registerRoutes(app: any) {
   await app.register(authRoutes, { prefix: '/api/auth' });
@@ -20,5 +22,7 @@ export async function registerRoutes(app: any) {
   await app.register(notificationRoutes, { prefix: '/api' });
   await app.register(adminRoutes, { prefix: '/api/admin' });
   await app.register(billingRoutes, { prefix: '/api/billing' });
+  await app.register(brandingRoutes, { prefix: '/api' });
+  await app.register(integrationsRoutes, { prefix: '/api' });
   await app.register(publicRoutes, { prefix: '/api/public' });
 }

@@ -9,6 +9,31 @@ export interface OrganizationsTable {
   status: 'ACTIVE' | 'DISABLED' | 'PROVISIONING';
   credits_balance: number;
   feature_costs: unknown | null;
+  custom_domain: string | null;
+  branding_json: unknown | null; // { primaryColor, logoUrl, logoSecondaryUrl, faviconUrl }
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+export interface SSOConfigsTable {
+  id: string;
+  org_id: string;
+  type: 'OIDC' | 'SAML';
+  issuer_url: string;
+  client_id: string;
+  client_secret_enc: string | null; // Encrypted secret
+  is_active: boolean;
+  meta_json: unknown | null;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+export interface IntegrationsTable {
+  id: string;
+  org_id: string;
+  provider: 'greenhouse' | 'lever' | 'workday';
+  config_json: unknown;
+  status: 'ACTIVE' | 'INACTIVE';
   created_at: Timestamp;
   updated_at: Timestamp;
 }
@@ -228,6 +253,8 @@ export interface PasswordResetTokensTable {
 
 export interface Database {
   organizations: OrganizationsTable;
+  sso_configs: SSOConfigsTable;
+  integrations: IntegrationsTable;
   platform_admins: PlatformAdminsTable;
   audit_logs_platform: AuditLogsPlatformTable;
   global_question_pool: GlobalQuestionPoolTable;
