@@ -29,7 +29,7 @@ export class SSOService {
         const issuer = await Issuer.discover(config.issuer_url);
         const client = new issuer.Client({
             client_id: config.client_id,
-            client_secret: config.client_secret_enc, // Should be decrypted in a real app
+            client_secret: config.client_secret_enc ?? undefined, // Should be decrypted in a real app
             redirect_uris: [`${process.env.API_BASE_URL}/api/auth/sso/callback`],
             response_types: ['code'],
         });

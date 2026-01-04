@@ -3,7 +3,7 @@ import fp from 'fastify-plugin';
 import { Kysely } from 'kysely';
 import { resolveTenant, TenantAccessError } from '../services/tenancy';
 import { Database } from '../db/types';
-import { withTenantTransaction } from '../db';
+import { db, withTenantTransaction } from '../db';
 
 export default fp(async (app: FastifyInstance) => {
   app.decorateRequest('tenant', null);
